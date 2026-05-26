@@ -1,0 +1,46 @@
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# Local IDE
+.idea/
+*.iml
+*.iws
+*.ipr
+.kotlin/
+
+# Local config
+local.properties
+**/local.properties
+
+# Android
+captures/
+.externalNativeBuild/
+.cxx/
+*.apk
+*.aab
+*.ap_
+*.dex
+*.class
+
+# Signing — never commit
+*.jks
+*.keystore
+*.p12
+keystore.properties
+
+# OS
+.DS_Store
+Thumbs.db
+ehthumbs.db
+
+# Fetched font binaries (see scripts/fetch-geist-fonts.*)
+app/src/main/assets/fonts/*.ttf
+app/src/main/assets/fonts/*.otf
+
+# Paparazzi failure diffs (CI uploads these as artifacts; not committed)
+**/out/failures/
+
+# Test reports
+**/reports/

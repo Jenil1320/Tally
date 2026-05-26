@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+        Activity-level theme. Compose paints the real Tally surfaces over the
+        top of this; the only job of the XML theme is to (a) skip the system
+        action bar, (b) prevent a white flash before Compose's first frame,
+        (c) declare a dark status/navigation bar background, (d) hard-pin
+        the configuration to dark mode so a system-level light-mode toggle
+        cannot leak through to the splash.
+    -->
+    <style name="Theme.Tally" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/tally_bg0</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+        <item name="android:enforceNavigationBarContrast">false</item>
+        <item name="android:enforceStatusBarContrast">false</item>
+        <item name="android:forceDarkAllowed">false</item>
+    </style>
+</resources>

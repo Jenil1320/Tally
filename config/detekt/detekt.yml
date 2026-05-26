@@ -1,0 +1,75 @@
+build:
+  maxIssues: 0
+  excludeCorrectable: false
+
+config:
+  validation: true
+  warningsAsErrors: false
+  checkExhaustiveness: false
+
+processors:
+  active: true
+
+console-reports:
+  active: true
+
+complexity:
+  active: true
+  LongMethod:
+    active: true
+    threshold: 80
+  LongParameterList:
+    active: true
+    functionThreshold: 8
+    constructorThreshold: 10
+  CyclomaticComplexMethod:
+    active: true
+    threshold: 18
+  TooManyFunctions:
+    active: false  # Compose UI files legitimately have many small composables.
+
+style:
+  active: true
+  MagicNumber:
+    active: false  # ViewModel maths uses constants meaningful in context.
+  WildcardImport:
+    active: true
+  UnusedImports:
+    active: true
+  ForbiddenComment:
+    active: true
+    values:
+      - 'FIXME'
+      - 'STOPSHIP'
+      - 'TODO\\(noissue\\)'
+
+naming:
+  active: true
+  FunctionNaming:
+    active: true
+    ignoreAnnotated: ['Composable', 'Test']  # Composables PascalCase, tests use backticks.
+
+# Tally-specific rule: no analytics SDKs.
+forbidden-imports:
+  active: true
+  ForbiddenImport:
+    active: true
+    imports:
+      - 'com.google.firebase.analytics.**'
+      - 'com.amplitude.**'
+      - 'com.mixpanel.**'
+      - 'com.bugsnag.**'
+      - 'io.sentry.**'
+      - 'com.datadog.**'
+      - 'com.appsflyer.**'
+
+empty-blocks:
+  active: true
+  EmptyFunctionBlock:
+    active: true
+    ignoreOverridden: true
+
+exceptions:
+  active: true
+  TooGenericExceptionCaught:
+    active: false
