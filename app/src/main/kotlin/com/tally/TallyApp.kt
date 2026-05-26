@@ -14,12 +14,12 @@ import javax.inject.Inject
  */
 @HiltAndroidApp
 class TallyApp : Application(), Configuration.Provider {
-
     @Inject lateinit var workerFactory: HiltWorkerFactory
 
     override val workManagerConfiguration: Configuration
-        get() = Configuration.Builder()
-            .setWorkerFactory(workerFactory)
-            .setMinimumLoggingLevel(android.util.Log.INFO)
-            .build()
+        get() =
+            Configuration.Builder()
+                .setWorkerFactory(workerFactory)
+                .setMinimumLoggingLevel(android.util.Log.INFO)
+                .build()
 }

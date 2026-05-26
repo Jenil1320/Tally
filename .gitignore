@@ -42,5 +42,8 @@ app/src/main/assets/fonts/*.otf
 # Paparazzi failure diffs (CI uploads these as artifacts; not committed)
 **/out/failures/
 
+# Local build/triage logs
+*.log
+
 # Test reports
 **/reports/

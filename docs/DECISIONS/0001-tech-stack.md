@@ -19,6 +19,7 @@ Adopt the brief's stack verbatim, with versions pinned in `gradle/libs.versions.
 | Build | Android Gradle Plugin | 8.7.3, Gradle 8.10.2 |
 | UI | Jetpack Compose (Material 3) | Compose BOM 2024.12.01, M3 1.3.1 |
 | Min SDK / Target SDK | API 26 / API 34 | — |
+| Compile SDK | API 35 | See note below — brief is silent on compileSdk. |
 | Persistence | Room | 2.6.1, KSP 2.0.21-1.0.28 |
 | DI | Hilt | 2.52 |
 | Async | Coroutines + Flow | 1.9.0 |
@@ -31,6 +32,14 @@ Adopt the brief's stack verbatim, with versions pinned in `gradle/libs.versions.
 | CI | GitHub Actions | — |
 
 Single Gradle module (`app`) plus `build-logic/` for convention plugins. No multi-module split in v1.0.
+
+### Note on compileSdk 35 vs targetSdk 34
+
+The brief (§3) pins **minSdk 26** and **targetSdk 34** but does not mention `compileSdk`. During the first local build, `androidx.core:core-ktx:1.15.0` and `androidx.work:2.10.0` (and, transitively, most current androidx) required compiling against **API 35 or later** (an AAR-metadata gate). AGP's own diagnostic notes that `compileSdk` (which APIs you can call at build time) moves independently of `targetSdk` (which runtime behaviours you opt into) and `minSdk` (install floor).
+
+Decision: set **compileSdk 35, keep targetSdk 34, keep minSdk 26**. This honours the two values the brief actually pins, satisfies the dependency graph, and avoids deliberately freezing androidx at older releases that would compound friction through M2–M6.
+
+**Open item flagged to PM:** Google Play's `targetSdk` floor moved to API 35 during 2025. The brief's "API 34 (current Play Store requirement)" rationale is likely now stale. Keeping targetSdk 34 for now (per the letter of the brief); recommend bumping to 35 before the M6 internal-track release. This is a runtime-behaviour change, so it needs PM sign-off rather than a silent bump.
 
 ## Consequences
 

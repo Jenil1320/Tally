@@ -54,10 +54,11 @@ private fun TallyPlaceholderRoot() {
         color = Color(0xFF14181B),
     ) {
         Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color(0xFF14181B))
-                .wrapContentSize(),
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .background(Color(0xFF14181B))
+                    .wrapContentSize(),
         ) {
             Text(
                 text = "Tally",
@@ -70,4 +71,6 @@ private fun TallyPlaceholderRoot() {
 
 @Preview(showBackground = true, backgroundColor = 0xFF14181B)
 @Composable
-private fun TallyPlaceholderRootPreview() { TallyPlaceholderRoot() }
+private fun TallyPlaceholderRootPreview() {
+    TallyPlaceholderRoot()
+}

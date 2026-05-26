@@ -38,30 +38,36 @@ style:
     active: true
   ForbiddenComment:
     active: true
-    values:
-      - 'FIXME'
-      - 'STOPSHIP'
-      - 'TODO\\(noissue\\)'
+    comments:
+      - reason: 'Resolve before merge.'
+        value: 'FIXME'
+      - reason: 'Never ship a STOPSHIP.'
+        value: 'STOPSHIP'
+  # Tally constitution (N9): no analytics SDKs. This backstops the CI
+  # dependency-tree grep at the source level — a forbidden import fails detekt.
+  ForbiddenImport:
+    active: true
+    imports:
+      - value: 'com.google.firebase.analytics.**'
+        reason: 'No analytics SDKs — Tally is local-first (N9).'
+      - value: 'com.amplitude.**'
+        reason: 'No analytics SDKs (N9).'
+      - value: 'com.mixpanel.**'
+        reason: 'No analytics SDKs (N9).'
+      - value: 'com.bugsnag.**'
+        reason: 'No crash/telemetry SDKs (N9).'
+      - value: 'io.sentry.**'
+        reason: 'No crash/telemetry SDKs (N9).'
+      - value: 'com.datadog.**'
+        reason: 'No telemetry SDKs (N9).'
+      - value: 'com.appsflyer.**'
+        reason: 'No attribution/telemetry SDKs (N9).'
 
 naming:
   active: true
   FunctionNaming:
     active: true
     ignoreAnnotated: ['Composable', 'Test']  # Composables PascalCase, tests use backticks.
-
-# Tally-specific rule: no analytics SDKs.
-forbidden-imports:
-  active: true
-  ForbiddenImport:
-    active: true
-    imports:
-      - 'com.google.firebase.analytics.**'
-      - 'com.amplitude.**'
-      - 'com.mixpanel.**'
-      - 'com.bugsnag.**'
-      - 'io.sentry.**'
-      - 'com.datadog.**'
-      - 'com.appsflyer.**'
 
 empty-blocks:
   active: true

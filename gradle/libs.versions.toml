@@ -6,7 +6,10 @@ ksp = "2.0.21-1.0.28"
 gradle = "8.10.2"
 
 # Android SDK
-compileSdk = "34"
+# compileSdk 35: required by androidx.core 1.15 / work 2.10 (and most current
+# androidx). targetSdk stays 34 per brief §3 — compileSdk (build-time APIs)
+# moves independently of targetSdk (runtime behaviour). See ADR-0001.
+compileSdk = "35"
 minSdk = "26"
 targetSdk = "34"
 
