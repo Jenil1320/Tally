@@ -1,41 +1,42 @@
 #!/usr/bin/env bash
-# Fetches Geist + Geist Mono from Vercel's official OFL release into
-# app/src/main/assets/fonts/. Run once after cloning; the binaries are
-# git-ignored deliberately (see .gitignore + docs/DECISIONS/0001-tech-stack.md).
+# Fetches the Geist + Geist Mono TTFs Tally bundles, from Vercel's official
+# repo (SIL OFL 1.1), pinned to a tag for reproducibility. Drops them into
+# app/src/main/assets/fonts/. Binaries are git-ignored on purpose
+# (see .gitignore + docs/DECISIONS/0001-tech-stack.md).
 #
-# Re-run any time you bump versions in libs.versions.toml.
+# Run once after cloning; re-run if you change GEIST_TAG.
+#
+#   ./scripts/fetch-geist-fonts.sh
+#
+# --ssl-no-revoke is a no-op off Windows; on a corporate Windows network it
+# avoids the CRL/OCSP revocation-check failure (see docs/ARCHITECTURE.md).
 
 set -euo pipefail
 
-VERSION="1.3.0"
-BASE_URL="https://github.com/vercel/geist-font/releases/download/${VERSION}"
-DEST="$(dirname "$0")/../app/src/main/assets/fonts"
+GEIST_TAG="v1.7.1"
+BASE="https://raw.githubusercontent.com/vercel/geist-font/${GEIST_TAG}/fonts"
+DEST="$(cd "$(dirname "$0")/.." && pwd)/app/src/main/assets/fonts"
 
 mkdir -p "$DEST"
 
-declare -A FILES=(
-  ["Geist-Regular.ttf"]="geist-1.3.0.zip"
-  ["Geist-Medium.ttf"]="geist-1.3.0.zip"
-  ["Geist-SemiBold.ttf"]="geist-1.3.0.zip"
-  ["GeistMono-Regular.ttf"]="geist-mono-1.3.0.zip"
-  ["GeistMono-Medium.ttf"]="geist-mono-1.3.0.zip"
+# Weights the design canvas uses: Geist 300/400/500/600/700, Mono 400/500/600.
+FILES=(
+  "Geist/ttf/Geist-Light.ttf"
+  "Geist/ttf/Geist-Regular.ttf"
+  "Geist/ttf/Geist-Medium.ttf"
+  "Geist/ttf/Geist-SemiBold.ttf"
+  "Geist/ttf/Geist-Bold.ttf"
+  "GeistMono/ttf/GeistMono-Regular.ttf"
+  "GeistMono/ttf/GeistMono-Medium.ttf"
+  "GeistMono/ttf/GeistMono-SemiBold.ttf"
 )
 
-TMP=$(mktemp -d)
-trap 'rm -rf "$TMP"' EXIT
+echo "→ Fetching Geist ${GEIST_TAG} into ${DEST}"
+for f in "${FILES[@]}"; do
+  name="$(basename "$f")"
+  echo "  · $name"
+  curl -fsSL --ssl-no-revoke "$BASE/$f" -o "$DEST/$name"
+done
 
-echo "→ Fetching Geist ${VERSION} from ${BASE_URL}"
-curl -fL "${BASE_URL}/geist-${VERSION}.zip" -o "$TMP/geist.zip"
-curl -fL "${BASE_URL}/geist-mono-${VERSION}.zip" -o "$TMP/geist-mono.zip"
-
-unzip -qo "$TMP/geist.zip" -d "$TMP/geist"
-unzip -qo "$TMP/geist-mono.zip" -d "$TMP/geist-mono"
-
-# The Vercel zips ship under fonts/ttf/ — flatten into assets/fonts/.
-find "$TMP/geist" -name 'Geist-*.ttf' -exec cp {} "$DEST/" \;
-find "$TMP/geist-mono" -name 'GeistMono-*.ttf' -exec cp {} "$DEST/" \;
-
-echo "→ Fonts placed in $DEST:"
+echo "→ Done. Bundled fonts:"
 ls -1 "$DEST"
-
-echo "→ Done. Geist + Geist Mono are now bundled for the next assembleDebug."

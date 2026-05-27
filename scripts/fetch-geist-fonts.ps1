@@ -1,32 +1,40 @@
-# Fetches Geist + Geist Mono from Vercel's official OFL release into
-# app/src/main/assets/fonts/. Run once after cloning; binaries are git-ignored.
+# Fetches the Geist + Geist Mono TTFs Tally bundles, from Vercel's official
+# repo (SIL OFL 1.1), pinned to a tag for reproducibility. Drops them into
+# app/src/main/assets/fonts/. Binaries are git-ignored on purpose.
 #
-# Usage:  pwsh ./scripts/fetch-geist-fonts.ps1
+# Run once after cloning; re-run if you change $GeistTag.
+#
+#   pwsh ./scripts/fetch-geist-fonts.ps1   (or: powershell -File scripts/fetch-geist-fonts.ps1)
+#
+# Uses curl.exe --ssl-no-revoke so it works behind the corporate TLS proxy
+# (Windows PowerShell's Invoke-WebRequest truncates large files).
 
 $ErrorActionPreference = 'Stop'
 
-$Version = '1.3.0'
-$BaseUrl = "https://github.com/vercel/geist-font/releases/download/$Version"
+$GeistTag = 'v1.7.1'
+$Base = "https://raw.githubusercontent.com/vercel/geist-font/$GeistTag/fonts"
 $Dest = Join-Path $PSScriptRoot '..\app\src\main\assets\fonts'
-
 New-Item -ItemType Directory -Force -Path $Dest | Out-Null
 
-$tmp = New-Item -ItemType Directory -Path ([System.IO.Path]::GetTempPath() + [System.Guid]::NewGuid())
-try {
-    Write-Host "-> Fetching Geist $Version from $BaseUrl"
-    Invoke-WebRequest "$BaseUrl/geist-$Version.zip"      -OutFile (Join-Path $tmp 'geist.zip')
-    Invoke-WebRequest "$BaseUrl/geist-mono-$Version.zip" -OutFile (Join-Path $tmp 'geist-mono.zip')
+# Weights the design canvas uses: Geist 300/400/500/600/700, Mono 400/500/600.
+$files = @(
+    'Geist/ttf/Geist-Light.ttf',
+    'Geist/ttf/Geist-Regular.ttf',
+    'Geist/ttf/Geist-Medium.ttf',
+    'Geist/ttf/Geist-SemiBold.ttf',
+    'Geist/ttf/Geist-Bold.ttf',
+    'GeistMono/ttf/GeistMono-Regular.ttf',
+    'GeistMono/ttf/GeistMono-Medium.ttf',
+    'GeistMono/ttf/GeistMono-SemiBold.ttf'
+)
 
-    Expand-Archive -Path (Join-Path $tmp 'geist.zip')      -DestinationPath (Join-Path $tmp 'geist')      -Force
-    Expand-Archive -Path (Join-Path $tmp 'geist-mono.zip') -DestinationPath (Join-Path $tmp 'geist-mono') -Force
-
-    Get-ChildItem -Path (Join-Path $tmp 'geist')      -Recurse -Filter 'Geist-*.ttf'     | Copy-Item -Destination $Dest -Force
-    Get-ChildItem -Path (Join-Path $tmp 'geist-mono') -Recurse -Filter 'GeistMono-*.ttf' | Copy-Item -Destination $Dest -Force
-
-    Write-Host "-> Fonts placed in $Dest"
-    Get-ChildItem -Path $Dest -Filter '*.ttf' | ForEach-Object { Write-Host "   $($_.Name)" }
-    Write-Host "-> Done. Geist + Geist Mono are now bundled for the next assembleDebug."
+Write-Host "-> Fetching Geist $GeistTag into $Dest"
+foreach ($f in $files) {
+    $name = Split-Path $f -Leaf
+    Write-Host "   . $name"
+    & curl.exe -fsSL --ssl-no-revoke "$Base/$f" -o (Join-Path $Dest $name)
+    if ($LASTEXITCODE -ne 0) { throw "Failed to download $f" }
 }
-finally {
-    Remove-Item -Recurse -Force $tmp
-}
+
+Write-Host "-> Done. Bundled fonts:"
+Get-ChildItem -Path $Dest -Filter '*.ttf' | ForEach-Object { Write-Host "   $($_.Name)" }
