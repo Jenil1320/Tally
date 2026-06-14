@@ -3,16 +3,17 @@
     XML-resource colours used only by the system (windowBackground, mipmap
     backgrounds). Compose pulls its colours from `com.tally.ui.theme` instead.
 
-    These are sRGB hex approximations of the oklch values in the design canvas.
-    The Compose theme (PR2) uses the Oklab colour-space helper to compute the
-    exact perceptual brightness; these hex values exist purely to seed the
-    pre-Compose splash.
+    These hex values are the committed source of truth for the three design
+    anchors. The Compose theme reproduces them via OKLCH inputs calibrated to
+    render to exactly these bytes (the OKLCH alongside each entry), so the
+    pre-Compose splash and the first Compose frame are identical — no cold-start
+    flash. OklchTest enforces the match; ADR-0003 records the calibration.
 -->
 <resources>
-    <!-- oklch(0.16 0.008 250) — page background -->
+    <!-- oklch(0.2061 0.0086 240.33) — page background -->
     <color name="tally_bg0">#14181B</color>
-    <!-- oklch(0.98 0.004 250) — text hi -->
+    <!-- oklch(0.9843 0.0011 197.14) — text hi -->
     <color name="tally_text_hi">#F9FAFA</color>
-    <!-- oklch(0.76 0.16 165) — emerald accent (default jewel) -->
+    <!-- oklch(0.7422 0.1399 166.58) — emerald accent (default jewel) -->
     <color name="tally_accent_emerald">#33C798</color>
 </resources>
