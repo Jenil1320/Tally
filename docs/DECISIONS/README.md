@@ -53,3 +53,4 @@ elaborates.
 - [0002 — Give Pence arithmetic operators, but not division](0002-pence-arithmetic.md)
 - [0003 — Calibrate OKLCH tokens to the committed splash hex](0003-oklch-token-calibration.md)
 - [0004 — Paparazzi screenshots via JUnit Vintage; goldens excluded on CI for now](0004-paparazzi-screenshots.md)
+- [0005 — Transaction amount is signed in spend terms](0005-transaction-amount-sign.md)

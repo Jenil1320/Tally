@@ -2,6 +2,7 @@ plugins {
     id("tally.android.application")
     id("tally.android.compose")
     id("tally.android.hilt")
+    alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.paparazzi)
 }
 
@@ -13,6 +14,15 @@ android {
         versionName = "0.1.0-m1"
         resourceConfigurations += setOf("en", "en-rGB")
     }
+    // Room schema export — the migration test (ARCHITECTURE §6) reads these.
+    sourceSets.named("androidTest") {
+        assets.srcDir(layout.projectDirectory.dir("schemas"))
+    }
+}
+
+// Export Room schemas to /schemas so migration tests can walk 1 -> current.
+ksp {
+    arg("room.schemaLocation", layout.projectDirectory.dir("schemas").asFile.path)
 }
 
 dependencies {
@@ -20,6 +30,7 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.datetime)
+    implementation(libs.kotlinx.serialization.json) // type-safe nav routes
 
     // Room (entities + DAOs land in PR3; wiring KSP here so PR3 is purely additive).
     implementation(libs.androidx.room.runtime)
@@ -48,6 +59,11 @@ dependencies {
 
     androidTestImplementation(libs.androidx.room.testing)
     androidTestImplementation(libs.androidx.work.testing)
+    androidTestImplementation(libs.junit4)
+    androidTestImplementation(libs.androidx.test.ext.junit)
+    androidTestImplementation(libs.androidx.test.core.ktx)
+    androidTestImplementation(libs.kotlinx.coroutines.test)
+    androidTestImplementation(libs.google.truth)
 }
 
 // Paparazzi goldens are recorded on the developer's OS (Windows). Cross-OS font
