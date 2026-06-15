@@ -8,11 +8,24 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.CalendarToday
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -32,10 +45,11 @@ import com.tally.ui.components.TTextField
 import com.tally.ui.theme.TallyTheme
 
 /**
- * Add/Edit sheet content (hosted in a `ModalBottomSheet`). Opened fresh for a new
- * entry or with [editingId] to edit an existing one. When editing, Duplicate and
- * Delete actions appear. Save is gated by [AddUiState.canSave].
+ * Add/Edit sheet content. Opened fresh for a new entry or with [editingId] to
+ * edit. Amount (keypad), merchant, auto-suggested category, optional note, and
+ * an editable date. Editing reveals Duplicate and Delete.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddSheet(
     editingId: String?,
@@ -43,10 +57,10 @@ fun AddSheet(
     modifier: Modifier = Modifier,
     viewModel: AddViewModel = hiltViewModel(),
 ) {
-    // The sheet re-enters composition on each open, so this initialises once per open.
     LaunchedEffect(Unit) { viewModel.start(editingId) }
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val colors = TallyTheme.colors
+    var showDatePicker by remember { mutableStateOf(false) }
 
     Column(
         modifier =
@@ -78,6 +92,8 @@ fun AddSheet(
             onSelect = viewModel::onCategorySelected,
         )
 
+        DateField(label = state.occurredAtLabel, onClick = { showDatePicker = true })
+
         TTextField(
             value = state.note,
             onValueChange = viewModel::onNoteChange,
@@ -104,14 +120,52 @@ fun AddSheet(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly,
             ) {
-                TextAction(label = "Duplicate", color = colors.textMid) {
-                    viewModel.duplicate(onDone = onDismiss)
-                }
-                TextAction(label = "Delete", color = colors.danger) {
-                    viewModel.delete(onDone = onDismiss)
-                }
+                TextAction(label = "Duplicate", color = colors.textMid) { viewModel.duplicate(onDone = onDismiss) }
+                TextAction(label = "Delete", color = colors.danger) { viewModel.delete(onDone = onDismiss) }
             }
         }
+    }
+
+    if (showDatePicker) {
+        val pickerState = rememberDatePickerState(initialSelectedDateMillis = state.occurredAtMillis)
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    pickerState.selectedDateMillis?.let(viewModel::onDateSelected)
+                    showDatePicker = false
+                }) { Text("OK") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) { Text("Cancel") }
+            },
+        ) {
+            DatePicker(state = pickerState)
+        }
+    }
+}
+
+@Composable
+private fun DateField(
+    label: String,
+    onClick: () -> Unit,
+) {
+    val colors = TallyTheme.colors
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .clip(TallyTheme.shapes.small)
+                .background(colors.bg3)
+                .clickable(onClick = onClick)
+                .heightIn(min = TallyTheme.spacing.minTouchTarget)
+                .padding(horizontal = TallyTheme.spacing.md, vertical = TallyTheme.spacing.sm),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(TallyTheme.spacing.md),
+    ) {
+        Icon(Icons.Outlined.CalendarToday, contentDescription = null, tint = colors.textLo)
+        TText(text = "Date", color = colors.textLo, modifier = Modifier.weight(1f))
+        TText(text = label, color = colors.textHi)
     }
 }
 

@@ -12,12 +12,17 @@ import com.tally.domain.model.NewTransaction
 import com.tally.domain.model.TransactionSource
 import com.tally.domain.repo.CategoryRepository
 import com.tally.domain.repo.TransactionRepository
+import com.tally.ui.model.dayLabel
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.datetime.Instant
+import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toInstant
+import kotlinx.datetime.toLocalDateTime
 import javax.inject.Inject
 
 private const val MAX_PENCE = 9_999_999_99L // £9,999,999.99 cap
@@ -25,10 +30,10 @@ private const val MAX_PENCE = 9_999_999_99L // £9,999,999.99 cap
 /**
  * State for the Add/Edit sheet.
  *
- * The amount is a running pence accumulator driven by the keypad. [canSave]
- * gates Save: a positive amount, a non-blank merchant, and not already saving.
- * [editingId] is non-null when editing an existing transaction (vs adding a new
- * one), which also reveals the Delete and Duplicate actions.
+ * Amount is a running pence accumulator. [occurredAtMillis] is the editable
+ * transaction date (defaults to now for a new entry, or the original on edit),
+ * shown as [occurredAtLabel]. [canSave] gates Save; [editingId] non-null means
+ * edit mode (revealing Delete/Duplicate).
  */
 data class AddUiState(
     val amountPence: Long = 0L,
@@ -37,6 +42,8 @@ data class AddUiState(
     val selectedCategoryId: String? = null,
     val categories: List<Category> = emptyList(),
     val categoryManuallySet: Boolean = false,
+    val occurredAtMillis: Long = 0L,
+    val occurredAtLabel: String = "Today",
     val editingId: String? = null,
     val saving: Boolean = false,
 ) {
@@ -46,9 +53,8 @@ data class AddUiState(
 }
 
 /**
- * Drives the Add/Edit sheet. New entries auto-suggest a category from the
- * merchant (and learn the choice on save). Editing loads the transaction,
- * preserves its original date, and supports delete (soft) and duplicate.
+ * Drives the Add/Edit sheet: keypad amount, auto-suggested category (learned then
+ * bundled, taught on save), an editable date, and edit/delete/duplicate.
  */
 @HiltViewModel
 class AddViewModel
@@ -59,15 +65,15 @@ class AddViewModel
         private val merchantRuleStore: MerchantRuleStore,
         private val clock: Clock,
     ) : ViewModel() {
+        private val timeZone = TimeZone.currentSystemDefault()
         private val _uiState = MutableStateFlow(AddUiState())
         val uiState = _uiState.asStateFlow()
 
         private var learnedRules: Map<String, String> = emptyMap()
 
-        /** Original date of the transaction being edited, preserved on update. */
-        private var editingOccurredAt: Instant? = null
-
         init {
+            val now = clock.nowMillis()
+            _uiState.update { it.copy(occurredAtMillis = now, occurredAtLabel = labelFor(now)) }
             viewModelScope.launch {
                 categoryRepository.observeAll().collect { categories ->
                     _uiState.update { state ->
@@ -83,18 +89,15 @@ class AddViewModel
             }
         }
 
-        /** Initialise the sheet: a fresh entry when [editingId] is null, else load it. */
+        /** Initialise the sheet: a fresh entry (dated now) when [editingId] is null, else load it. */
         fun start(editingId: String?) {
             if (editingId == null) {
-                editingOccurredAt = null
-                _uiState.update {
-                    AddUiState(categories = it.categories, selectedCategoryId = it.categories.firstOrNull()?.id)
-                }
+                resetForm()
                 return
             }
             viewModelScope.launch {
                 val transaction = transactionRepository.findById(editingId) ?: return@launch
-                editingOccurredAt = transaction.occurredAt
+                val millis = transaction.occurredAt.toEpochMilliseconds()
                 _uiState.update { state ->
                     state.copy(
                         amountPence = transaction.amount.value,
@@ -102,6 +105,8 @@ class AddViewModel
                         note = transaction.note.orEmpty(),
                         selectedCategoryId = transaction.categoryId ?: state.categories.firstOrNull()?.id,
                         categoryManuallySet = true,
+                        occurredAtMillis = millis,
+                        occurredAtLabel = labelFor(millis),
                         editingId = editingId,
                         saving = false,
                     )
@@ -142,7 +147,18 @@ class AddViewModel
             _uiState.update { it.copy(selectedCategoryId = categoryId, categoryManuallySet = true) }
         }
 
-        /** Save: update the existing transaction when editing, otherwise add a new one. */
+        /**
+         * Apply a date from the Material date picker (which reports the picked day
+         * as UTC midnight). Keeps the current time-of-day so ordering within a day
+         * is preserved.
+         */
+        fun onDateSelected(utcMidnightMillis: Long) {
+            val pickedDate = Instant.fromEpochMilliseconds(utcMidnightMillis).toLocalDateTime(TimeZone.UTC).date
+            val currentTime = Instant.fromEpochMilliseconds(_uiState.value.occurredAtMillis).toLocalDateTime(timeZone).time
+            val combined = LocalDateTime(pickedDate, currentTime).toInstant(timeZone).toEpochMilliseconds()
+            _uiState.update { it.copy(occurredAtMillis = combined, occurredAtLabel = labelFor(combined)) }
+        }
+
         fun save(onSaved: () -> Unit) {
             val state = _uiState.value
             if (!state.canSave) return
@@ -154,7 +170,7 @@ class AddViewModel
                     NewTransaction(
                         amount = state.amount,
                         merchant = merchant,
-                        occurredAt = editingOccurredAt ?: clock.now(),
+                        occurredAt = Instant.fromEpochMilliseconds(state.occurredAtMillis),
                         note = state.note.trim().ifBlank { null },
                         categoryId = categoryId,
                         source = TransactionSource.MANUAL,
@@ -173,7 +189,6 @@ class AddViewModel
             }
         }
 
-        /** Soft-delete the transaction being edited. */
         fun delete(onDone: () -> Unit) {
             val editingId = _uiState.value.editingId ?: return
             viewModelScope.launch {
@@ -204,12 +219,20 @@ class AddViewModel
             }
         }
 
+        private fun labelFor(millis: Long): String {
+            val date = Instant.fromEpochMilliseconds(millis).toLocalDateTime(timeZone).date
+            val today = clock.now().toLocalDateTime(timeZone).date
+            return dayLabel(date, today)
+        }
+
         private fun resetForm() {
-            editingOccurredAt = null
+            val now = clock.nowMillis()
             _uiState.value =
                 AddUiState(
                     categories = _uiState.value.categories,
                     selectedCategoryId = _uiState.value.categories.firstOrNull()?.id,
+                    occurredAtMillis = now,
+                    occurredAtLabel = labelFor(now),
                 )
         }
     }

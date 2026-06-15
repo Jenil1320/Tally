@@ -12,6 +12,8 @@ import com.tally.util.MainDispatcherExtension
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.Instant
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.RegisterExtension
 
@@ -135,5 +137,17 @@ class AddViewModelTest {
             val all = transactions.observeAll().first()
             assertThat(all).hasSize(2)
             assertThat(all.map { it.merchant }.toSet()).containsExactly("Pret")
+        }
+
+    @Test fun `a selected date is applied on save`() =
+        runTest {
+            val vm = viewModel()
+            vm.onDigit(5)
+            vm.onMerchantChange("Thing")
+            vm.onDateSelected(Instant.parse("2020-01-15T00:00:00Z").toEpochMilliseconds())
+            vm.save { }
+            val stored = transactions.observeAll().first().first()
+            val year = stored.occurredAt.toLocalDateTime(TimeZone.currentSystemDefault()).year
+            assertThat(year).isEqualTo(2020)
         }
 }
