@@ -5,6 +5,7 @@ import com.tally.core.money.Pence
 import com.tally.core.time.FakeClock
 import com.tally.domain.model.Category
 import com.tally.fakes.FakeCategoryRepository
+import com.tally.fakes.FakeMerchantRuleStore
 import com.tally.fakes.FakeTransactionRepository
 import com.tally.util.MainDispatcherExtension
 import kotlinx.coroutines.flow.first
@@ -26,8 +27,9 @@ class AddViewModelTest {
                 Category("c2", "Transport", 2, true, 1),
             ),
         )
+    private val ruleStore = FakeMerchantRuleStore()
 
-    private fun viewModel() = AddViewModel(transactions, categories, clock)
+    private fun viewModel() = AddViewModel(transactions, categories, ruleStore, clock)
 
     @Test fun `keypad builds pence from the right`() {
         val vm = viewModel()
@@ -41,10 +43,6 @@ class AddViewModelTest {
         assertThat(vm.uiState.value.amountPence).isEqualTo(4800)
     }
 
-    @Test fun `auto-selects the first category`() {
-        assertThat(viewModel().uiState.value.selectedCategoryId).isEqualTo("c1")
-    }
-
     @Test fun `canSave requires a positive amount and a merchant`() {
         val vm = viewModel()
         assertThat(vm.uiState.value.canSave).isFalse()
@@ -54,14 +52,26 @@ class AddViewModelTest {
         assertThat(vm.uiState.value.canSave).isTrue()
     }
 
-    @Test fun `save writes the transaction and resets the form`() =
+    @Test fun `merchant change auto-suggests a category from bundled rules`() {
+        val vm = viewModel()
+        vm.onMerchantChange("Pret a Manger")
+        assertThat(vm.uiState.value.selectedCategoryId).isEqualTo("c1") // Eating out
+    }
+
+    @Test fun `a manual category choice is not clobbered by later merchant edits`() {
+        val vm = viewModel()
+        vm.onCategorySelected("c2")
+        vm.onMerchantChange("Pret a Manger")
+        assertThat(vm.uiState.value.selectedCategoryId).isEqualTo("c2")
+    }
+
+    @Test fun `save writes the transaction, learns the rule, and resets`() =
         runTest {
             val vm = viewModel()
             vm.onDigit(4)
             vm.onDigit(8)
             vm.onDigit(5)
-            vm.onMerchantChange("  Coffee  ")
-            vm.onCategorySelected("c2")
+            vm.onMerchantChange("  Pret  ")
             var saved = false
             vm.save { saved = true }
 
@@ -69,19 +79,16 @@ class AddViewModelTest {
             val stored = transactions.observeAll().first()
             assertThat(stored).hasSize(1)
             assertThat(stored[0].amount).isEqualTo(Pence(485))
-            assertThat(stored[0].merchant).isEqualTo("Coffee")
-            assertThat(stored[0].categoryId).isEqualTo("c2")
-
-            val reset = vm.uiState.value
-            assertThat(reset.amountPence).isEqualTo(0)
-            assertThat(reset.merchant).isEmpty()
-            assertThat(reset.selectedCategoryId).isEqualTo("c1")
+            assertThat(stored[0].categoryId).isEqualTo("c1")
+            assertThat(ruleStore.learned["PRET"]).isEqualTo("c1")
+            assertThat(vm.uiState.value.amountPence).isEqualTo(0)
+            assertThat(vm.uiState.value.merchant).isEmpty()
         }
 
     @Test fun `save is a no-op when the form is incomplete`() =
         runTest {
             val vm = viewModel()
-            vm.onDigit(5) // amount but no merchant
+            vm.onDigit(5)
             vm.save { }
             assertThat(transactions.observeAll().first()).isEmpty()
         }
