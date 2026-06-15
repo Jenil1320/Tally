@@ -48,8 +48,14 @@ fun TallyAppScaffold(navController: NavHostController = rememberNavController())
     val colors = TallyTheme.colors
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = backStackEntry?.destination
-    var showAddSheet by rememberSaveable { mutableStateOf(false) }
+    var sheetOpen by rememberSaveable { mutableStateOf(false) }
+    var editingId by rememberSaveable { mutableStateOf<String?>(null) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+    fun openSheet(transactionId: String?) {
+        editingId = transactionId
+        sheetOpen = true
+    }
 
     Scaffold(
         containerColor = colors.bg0,
@@ -83,7 +89,7 @@ fun TallyAppScaffold(navController: NavHostController = rememberNavController())
         },
         floatingActionButton = {
             FloatingActionButton(
-                onClick = { showAddSheet = true },
+                onClick = { openSheet(null) },
                 containerColor = colors.accent,
                 contentColor = colors.onAccent,
             ) {
@@ -97,21 +103,21 @@ fun TallyAppScaffold(navController: NavHostController = rememberNavController())
             startDestination = Today,
             modifier = Modifier.padding(innerPadding),
         ) {
-            composable<Today> { TodayScreen() }
-            composable<History> { HistoryScreen() }
+            composable<Today> { TodayScreen(onTransactionClick = { openSheet(it) }) }
+            composable<History> { HistoryScreen(onTransactionClick = { openSheet(it) }) }
             composable<Insights> { InsightsScreen() }
             composable<Reports> { ReportsScreen() }
             composable<Settings> { SettingsScreen() }
         }
     }
 
-    if (showAddSheet) {
+    if (sheetOpen) {
         ModalBottomSheet(
-            onDismissRequest = { showAddSheet = false },
+            onDismissRequest = { sheetOpen = false },
             sheetState = sheetState,
             containerColor = colors.bg2,
         ) {
-            AddSheet(onDismiss = { showAddSheet = false })
+            AddSheet(editingId = editingId, onDismiss = { sheetOpen = false })
         }
     }
 }

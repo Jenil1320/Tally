@@ -24,16 +24,18 @@ import com.tally.ui.theme.TallyTheme
 
 @Composable
 fun TodayScreen(
+    onTransactionClick: (String) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: TodayViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    TodayContent(state = state, modifier = modifier)
+    TodayContent(state = state, onTransactionClick = onTransactionClick, modifier = modifier)
 }
 
 @Composable
 private fun TodayContent(
     state: TodayUiState,
+    onTransactionClick: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = TallyTheme.colors
@@ -68,7 +70,7 @@ private fun TodayContent(
                 verticalArrangement = Arrangement.spacedBy(TallyTheme.spacing.sm),
             ) {
                 items(items = state.items, key = { it.id }) { item ->
-                    TTransactionRow(item = item)
+                    TTransactionRow(item = item, onClick = { onTransactionClick(item.id) })
                 }
             }
         }

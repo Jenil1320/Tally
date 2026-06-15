@@ -61,4 +61,24 @@ class DefaultTransactionRepositoryTest {
             assertThat(repository.countLive()).isEqualTo(0)
             assertThat(dao.findById(id)!!.deletedAt).isEqualTo(5_000L)
         }
+
+    @Test fun `findById returns the domain transaction or null`() =
+        runTest {
+            val id = repository.add(draft())
+            assertThat(repository.findById(id)?.merchant).isEqualTo("Coffee")
+            assertThat(repository.findById("missing")).isNull()
+        }
+
+    @Test fun `update changes editable fields but preserves createdAt`() =
+        runTest {
+            val id = repository.add(draft(amount = 485, merchant = "Coffee"))
+            val createdAt = dao.findById(id)!!.createdAt
+            clock.setTo(9_000)
+            repository.update(id, draft(amount = 999, merchant = "Lunch"))
+            val updated = dao.findById(id)!!
+            assertThat(updated.amount).isEqualTo(999L)
+            assertThat(updated.merchant).isEqualTo("Lunch")
+            assertThat(updated.createdAt).isEqualTo(createdAt)
+            assertThat(updated.deletedAt).isNull()
+        }
 }

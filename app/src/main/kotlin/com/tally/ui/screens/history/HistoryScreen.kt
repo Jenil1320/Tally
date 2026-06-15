@@ -24,16 +24,18 @@ import com.tally.ui.theme.TallyTheme
 
 @Composable
 fun HistoryScreen(
+    onTransactionClick: (String) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: HistoryViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    HistoryContent(state = state, modifier = modifier)
+    HistoryContent(state = state, onTransactionClick = onTransactionClick, modifier = modifier)
 }
 
 @Composable
 private fun HistoryContent(
     state: HistoryUiState,
+    onTransactionClick: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = TallyTheme.colors
@@ -69,7 +71,8 @@ private fun HistoryContent(
                         }
                     }
                     items(count = day.items.size, key = { day.items[it].id }) { index ->
-                        TTransactionRow(item = day.items[index])
+                        val rowItem = day.items[index]
+                        TTransactionRow(item = rowItem, onClick = { onTransactionClick(rowItem.id) })
                     }
                 }
             }

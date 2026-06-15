@@ -17,19 +17,18 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.datetime.Instant
 import javax.inject.Inject
 
 private const val MAX_PENCE = 9_999_999_99L // £9,999,999.99 cap
 
 /**
- * State for the Add sheet.
+ * State for the Add/Edit sheet.
  *
- * The amount is a running pence accumulator driven by the keypad (digits fill
- * from the right). [canSave] gates the Save button: a positive amount, a
- * non-blank merchant, and not already saving.
- *
- * [categoryManuallySet] tracks whether the user has overridden the auto-
- * suggested category, so the categoriser doesn't keep clobbering their choice.
+ * The amount is a running pence accumulator driven by the keypad. [canSave]
+ * gates Save: a positive amount, a non-blank merchant, and not already saving.
+ * [editingId] is non-null when editing an existing transaction (vs adding a new
+ * one), which also reveals the Delete and Duplicate actions.
  */
 data class AddUiState(
     val amountPence: Long = 0L,
@@ -38,16 +37,18 @@ data class AddUiState(
     val selectedCategoryId: String? = null,
     val categories: List<Category> = emptyList(),
     val categoryManuallySet: Boolean = false,
+    val editingId: String? = null,
     val saving: Boolean = false,
 ) {
     val amount: Pence get() = Pence(amountPence)
+    val isEditing: Boolean get() = editingId != null
     val canSave: Boolean get() = amountPence > 0 && merchant.isNotBlank() && !saving
 }
 
 /**
- * Drives the Add bottom sheet. The categoriser auto-suggests a category from the
- * merchant (learned rules first, then bundled — see `suggestCategory`); the user
- * can override, and a saved transaction teaches the merchant→category mapping.
+ * Drives the Add/Edit sheet. New entries auto-suggest a category from the
+ * merchant (and learn the choice on save). Editing loads the transaction,
+ * preserves its original date, and supports delete (soft) and duplicate.
  */
 @HiltViewModel
 class AddViewModel
@@ -63,6 +64,9 @@ class AddViewModel
 
         private var learnedRules: Map<String, String> = emptyMap()
 
+        /** Original date of the transaction being edited, preserved on update. */
+        private var editingOccurredAt: Instant? = null
+
         init {
             viewModelScope.launch {
                 categoryRepository.observeAll().collect { categories ->
@@ -76,6 +80,32 @@ class AddViewModel
             }
             viewModelScope.launch {
                 merchantRuleStore.rules.collect { learnedRules = it }
+            }
+        }
+
+        /** Initialise the sheet: a fresh entry when [editingId] is null, else load it. */
+        fun start(editingId: String?) {
+            if (editingId == null) {
+                editingOccurredAt = null
+                _uiState.update {
+                    AddUiState(categories = it.categories, selectedCategoryId = it.categories.firstOrNull()?.id)
+                }
+                return
+            }
+            viewModelScope.launch {
+                val transaction = transactionRepository.findById(editingId) ?: return@launch
+                editingOccurredAt = transaction.occurredAt
+                _uiState.update { state ->
+                    state.copy(
+                        amountPence = transaction.amount.value,
+                        merchant = transaction.merchant,
+                        note = transaction.note.orEmpty(),
+                        selectedCategoryId = transaction.categoryId ?: state.categories.firstOrNull()?.id,
+                        categoryManuallySet = true,
+                        editingId = editingId,
+                        saving = false,
+                    )
+                }
             }
         }
 
@@ -112,6 +142,7 @@ class AddViewModel
             _uiState.update { it.copy(selectedCategoryId = categoryId, categoryManuallySet = true) }
         }
 
+        /** Save: update the existing transaction when editing, otherwise add a new one. */
         fun save(onSaved: () -> Unit) {
             val state = _uiState.value
             if (!state.canSave) return
@@ -119,25 +150,66 @@ class AddViewModel
             viewModelScope.launch {
                 val merchant = state.merchant.trim()
                 val categoryId = state.selectedCategoryId
+                val draft =
+                    NewTransaction(
+                        amount = state.amount,
+                        merchant = merchant,
+                        occurredAt = editingOccurredAt ?: clock.now(),
+                        note = state.note.trim().ifBlank { null },
+                        categoryId = categoryId,
+                        source = TransactionSource.MANUAL,
+                    )
+                val editingId = state.editingId
+                if (editingId != null) {
+                    transactionRepository.update(editingId, draft)
+                } else {
+                    transactionRepository.add(draft)
+                }
+                if (categoryId != null && merchant.isNotBlank()) {
+                    merchantRuleStore.learn(normaliseMerchant(merchant), categoryId)
+                }
+                resetForm()
+                onSaved()
+            }
+        }
+
+        /** Soft-delete the transaction being edited. */
+        fun delete(onDone: () -> Unit) {
+            val editingId = _uiState.value.editingId ?: return
+            viewModelScope.launch {
+                transactionRepository.softDelete(editingId)
+                resetForm()
+                onDone()
+            }
+        }
+
+        /** Create a fresh copy of the current entry, dated now. */
+        fun duplicate(onDone: () -> Unit) {
+            val state = _uiState.value
+            val merchant = state.merchant.trim()
+            if (state.amountPence <= 0 || merchant.isBlank()) return
+            viewModelScope.launch {
                 transactionRepository.add(
                     NewTransaction(
                         amount = state.amount,
                         merchant = merchant,
                         occurredAt = clock.now(),
                         note = state.note.trim().ifBlank { null },
-                        categoryId = categoryId,
+                        categoryId = state.selectedCategoryId,
                         source = TransactionSource.MANUAL,
                     ),
                 )
-                if (categoryId != null && merchant.isNotBlank()) {
-                    merchantRuleStore.learn(normaliseMerchant(merchant), categoryId)
-                }
-                _uiState.value =
-                    AddUiState(
-                        categories = state.categories,
-                        selectedCategoryId = state.categories.firstOrNull()?.id,
-                    )
-                onSaved()
+                resetForm()
+                onDone()
             }
+        }
+
+        private fun resetForm() {
+            editingOccurredAt = null
+            _uiState.value =
+                AddUiState(
+                    categories = _uiState.value.categories,
+                    selectedCategoryId = _uiState.value.categories.firstOrNull()?.id,
+                )
         }
     }

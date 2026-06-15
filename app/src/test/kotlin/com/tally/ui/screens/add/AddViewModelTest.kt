@@ -4,12 +4,14 @@ import com.google.common.truth.Truth.assertThat
 import com.tally.core.money.Pence
 import com.tally.core.time.FakeClock
 import com.tally.domain.model.Category
+import com.tally.domain.model.NewTransaction
 import com.tally.fakes.FakeCategoryRepository
 import com.tally.fakes.FakeMerchantRuleStore
 import com.tally.fakes.FakeTransactionRepository
 import com.tally.util.MainDispatcherExtension
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
+import kotlinx.datetime.Instant
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.RegisterExtension
 
@@ -91,5 +93,47 @@ class AddViewModelTest {
             vm.onDigit(5)
             vm.save { }
             assertThat(transactions.observeAll().first()).isEmpty()
+        }
+
+    @Test fun `editing loads the transaction and updates it in place`() =
+        runTest {
+            val id =
+                transactions.add(
+                    NewTransaction(Pence(485), "Pret", occurredAt = Instant.fromEpochMilliseconds(900), categoryId = "c1"),
+                )
+            val vm = viewModel()
+            vm.start(id)
+            assertThat(vm.uiState.value.isEditing).isTrue()
+            assertThat(vm.uiState.value.amountPence).isEqualTo(485)
+            assertThat(vm.uiState.value.merchant).isEqualTo("Pret")
+
+            vm.onDigit(0) // 485 -> 4850
+            vm.save { }
+
+            val all = transactions.observeAll().first()
+            assertThat(all).hasSize(1) // updated in place, not a new row
+            assertThat(all[0].id).isEqualTo(id)
+            assertThat(all[0].amount).isEqualTo(Pence(4850))
+            assertThat(all[0].occurredAt).isEqualTo(Instant.fromEpochMilliseconds(900)) // original date kept
+        }
+
+    @Test fun `delete removes the edited transaction`() =
+        runTest {
+            val id = transactions.add(NewTransaction(Pence(485), "Pret", occurredAt = Instant.fromEpochMilliseconds(900)))
+            val vm = viewModel()
+            vm.start(id)
+            vm.delete { }
+            assertThat(transactions.observeAll().first()).isEmpty()
+        }
+
+    @Test fun `duplicate creates a second copy`() =
+        runTest {
+            val id = transactions.add(NewTransaction(Pence(485), "Pret", occurredAt = Instant.fromEpochMilliseconds(900)))
+            val vm = viewModel()
+            vm.start(id)
+            vm.duplicate { }
+            val all = transactions.observeAll().first()
+            assertThat(all).hasSize(2)
+            assertThat(all.map { it.merchant }.toSet()).containsExactly("Pret")
         }
 }

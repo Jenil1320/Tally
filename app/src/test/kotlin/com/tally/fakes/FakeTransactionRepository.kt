@@ -27,6 +27,29 @@ class FakeTransactionRepository(
                 .sortedByDescending { it.occurredAt }
         }
 
+    override suspend fun findById(id: String): Transaction? = items.value.find { it.id == id }
+
+    override suspend fun update(
+        id: String,
+        draft: NewTransaction,
+    ) {
+        items.value =
+            items.value.map { existing ->
+                if (existing.id == id) {
+                    existing.copy(
+                        amount = draft.amount,
+                        merchant = draft.merchant,
+                        note = draft.note,
+                        categoryId = draft.categoryId,
+                        occurredAt = draft.occurredAt,
+                        source = draft.source,
+                    )
+                } else {
+                    existing
+                }
+            }
+    }
+
     override suspend fun add(draft: NewTransaction): String {
         val id = "tx${nextId++}"
         items.value =

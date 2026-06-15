@@ -37,12 +37,34 @@ class DefaultTransactionRepository
                 .map { rows -> rows.map { it.toDomain() } }
                 .flowOn(ioDispatcher)
 
+        override suspend fun findById(id: String): Transaction? =
+            withContext(ioDispatcher) {
+                dao.findById(id)?.toDomain()
+            }
+
         override suspend fun add(draft: NewTransaction): String =
             withContext(ioDispatcher) {
                 val id = ulidGenerator.next()
                 dao.insert(draft.toEntity(id = id, createdAt = clock.now()))
                 id
             }
+
+        override suspend fun update(
+            id: String,
+            draft: NewTransaction,
+        ) = withContext(ioDispatcher) {
+            val existing = dao.findById(id) ?: return@withContext
+            dao.update(
+                existing.copy(
+                    amount = draft.amount.value,
+                    merchant = draft.merchant,
+                    note = draft.note,
+                    categoryId = draft.categoryId,
+                    occurredAt = draft.occurredAt.toEpochMilliseconds(),
+                    source = draft.source.name,
+                ),
+            )
+        }
 
         override suspend fun softDelete(id: String) =
             withContext(ioDispatcher) {
