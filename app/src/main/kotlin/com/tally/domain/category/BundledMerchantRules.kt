@@ -35,15 +35,22 @@ object BundledMerchantRules {
             rule("NATIONAL RAIL", "Transport"),
             rule("UBER", "Transport"),
             rule("BOLT", "Transport"),
+            // Subscriptions — before Shopping so "AMAZON PRIME" beats "AMAZON".
+            rule("NETFLIX", "Subscriptions"),
+            rule("SPOTIFY", "Subscriptions"),
+            rule("DISNEY", "Subscriptions"),
+            rule("AMAZON PRIME", "Subscriptions"),
+            rule("PRIME VIDEO", "Subscriptions"),
+            rule("YOUTUBE PREMIUM", "Subscriptions"),
+            rule("AUDIBLE", "Subscriptions"),
+            rule("PATREON", "Subscriptions"),
+            rule("ICLOUD", "Subscriptions"),
             // Shopping
             rule("AMAZON", "Shopping"),
             rule("EBAY", "Shopping"),
             rule("ARGOS", "Shopping"),
             rule("ASOS", "Shopping"),
-            // Entertainment
-            rule("NETFLIX", "Entertainment"),
-            rule("SPOTIFY", "Entertainment"),
-            rule("DISNEY", "Entertainment"),
+            // Entertainment (cinemas; streaming is Subscriptions, above)
             rule("ODEON", "Entertainment"),
             rule("VUE", "Entertainment"),
             // Health

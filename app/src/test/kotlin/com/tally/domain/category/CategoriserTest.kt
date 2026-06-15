@@ -28,6 +28,17 @@ class CategoriserTest {
         assertThat(suggestCategory("   ", categories, emptyMap())).isNull()
     }
 
+    @Test fun `streaming maps to Subscriptions and Amazon Prime beats Amazon`() {
+        val cats =
+            listOf(
+                Category("sub", "Subscriptions", 10, true, 0),
+                Category("shop", "Shopping", 3, true, 1),
+            )
+        assertThat(suggestCategory("NETFLIX", cats, emptyMap())).isEqualTo("sub")
+        assertThat(suggestCategory("Amazon Prime Video", cats, emptyMap())).isEqualTo("sub")
+        assertThat(suggestCategory("Amazon", cats, emptyMap())).isEqualTo("shop")
+    }
+
     @Test fun `a learned rule for a deleted category falls through`() {
         val learned = mapOf("PRET A MANGER" to "gone")
         // Learned target no longer exists -> fall back to the bundled Eating out.

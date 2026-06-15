@@ -40,7 +40,7 @@ class TallyApp : Application(), Configuration.Provider {
         super.onCreate()
         ReminderNotifier.ensureChannel(this)
         applicationScope.launch {
-            databaseSeeder.seedIfEmpty()
+            databaseSeeder.ensureSetup()
             val reminder = reminderPreferences.state.first()
             if (reminder.enabled) {
                 reminderScheduler.schedule(reminder.hour, reminder.minute)

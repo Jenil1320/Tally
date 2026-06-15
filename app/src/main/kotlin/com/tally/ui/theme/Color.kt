@@ -83,7 +83,9 @@ private val neutral =
  * the user's vivid accent. Used by `TCatDot` and the hand-rolled charts.
  */
 private val categoryPalette: List<Color> =
-    // Hue order: rose, orange, gold, lime, green, teal, blue, periwinkle, violet, pink.
+    // 0–9: rose, orange, gold, lime, green, teal, blue, periwinkle, violet, pink.
+    // 10–11: a deeper amber and a lighter lavender (offset lightness keeps them
+    // distinct from the band above) — headroom for added categories.
     listOf(
         oklch(0.74, 0.105, 15.0),
         oklch(0.74, 0.105, 51.0),
@@ -95,6 +97,8 @@ private val categoryPalette: List<Color> =
         oklch(0.74, 0.105, 267.0),
         oklch(0.74, 0.105, 303.0),
         oklch(0.74, 0.105, 339.0),
+        oklch(0.66, 0.100, 40.0),
+        oklch(0.80, 0.090, 285.0),
     )
 
 /** Builds the full colour set for a chosen [jewel]. */
