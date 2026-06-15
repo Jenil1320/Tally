@@ -56,3 +56,4 @@ elaborates.
 - [0005 — Transaction amount is signed in spend terms](0005-transaction-amount-sign.md)
 - [0006 — Drop the splits feature; log your own share](0006-drop-splits.md)
 - [0007 — Categorisation is deterministic and local; learned rules in DataStore](0007-categorisation.md)
+- [0008 — Ship the core; defer SMS/CSV import, biometric, and export](0008-ship-core-defer-rest.md)
