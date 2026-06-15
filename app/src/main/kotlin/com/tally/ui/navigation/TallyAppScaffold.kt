@@ -3,15 +3,21 @@ package com.tally.ui.navigation
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FabPosition
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavDestination.Companion.hierarchy
@@ -22,7 +28,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.tally.ui.components.TText
-import com.tally.ui.screens.add.AddScreen
+import com.tally.ui.screens.add.AddSheet
 import com.tally.ui.screens.history.HistoryScreen
 import com.tally.ui.screens.insights.InsightsScreen
 import com.tally.ui.screens.reports.ReportsScreen
@@ -32,14 +38,18 @@ import com.tally.ui.theme.TallyTheme
 
 /**
  * The app shell: a bottom [NavigationBar] of the five [topLevelDestinations], a
- * centre Add FAB, and the type-safe [NavHost]. Tab clicks single-top and restore
- * state so re-tapping a tab returns to where the user was.
+ * centre Add FAB that opens the Add [ModalBottomSheet], and the type-safe
+ * [NavHost]. Tab clicks single-top and restore state so re-tapping a tab returns
+ * to where the user was.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TallyAppScaffold(navController: NavHostController = rememberNavController()) {
     val colors = TallyTheme.colors
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = backStackEntry?.destination
+    var showAddSheet by rememberSaveable { mutableStateOf(false) }
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     Scaffold(
         containerColor = colors.bg0,
@@ -73,7 +83,7 @@ fun TallyAppScaffold(navController: NavHostController = rememberNavController())
         },
         floatingActionButton = {
             FloatingActionButton(
-                onClick = { navController.navigate(Add) },
+                onClick = { showAddSheet = true },
                 containerColor = colors.accent,
                 contentColor = colors.onAccent,
             ) {
@@ -92,7 +102,16 @@ fun TallyAppScaffold(navController: NavHostController = rememberNavController())
             composable<Insights> { InsightsScreen() }
             composable<Reports> { ReportsScreen() }
             composable<Settings> { SettingsScreen() }
-            composable<Add> { AddScreen(onClose = { navController.popBackStack() }) }
+        }
+    }
+
+    if (showAddSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showAddSheet = false },
+            sheetState = sheetState,
+            containerColor = colors.bg2,
+        ) {
+            AddSheet(onDismiss = { showAddSheet = false })
         }
     }
 }

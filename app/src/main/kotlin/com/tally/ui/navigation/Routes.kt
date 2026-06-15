@@ -14,8 +14,8 @@ import kotlinx.serialization.Serializable
  * `@Serializable` object so `navigate(...)` and `composable<...>` are checked by
  * the compiler — no string routes.
  *
- * The five [topLevelDestinations] are the bottom-bar tabs; [Add] is the FAB
- * target (a full screen for now; M2 turns it into a bottom sheet).
+ * The five [topLevelDestinations] are the bottom-bar tabs; the Add flow is a
+ * `ModalBottomSheet` (see `TallyAppScaffold`), not a nav destination.
  *
  * NOTE: the tab set is inferred from the documented feature roadmap and is the
  * obvious thing to revisit with the PM — renaming a tab is a one-line change.
@@ -29,8 +29,6 @@ import kotlinx.serialization.Serializable
 @Serializable object Reports
 
 @Serializable object Settings
-
-@Serializable object Add
 
 /** A bottom-bar tab: its route, label, and icon. */
 data class TopLevelDestination(
