@@ -34,7 +34,9 @@ One Gradle module (`app`) for v1.0. Multi-module split is on the table for M6 on
 - **`core/time/`** — `Clock` interface (landed PR3). `SystemClock` is the only production implementation; tests inject `FakeClock`.
 - **`core/id/`** — `UlidGenerator` (Crockford base32, monotonic within a millisecond, 26 chars), landed PR3. Used as PK on every table.
 - **`data/`** — landed PR3: Room `TallyDatabase` v1 with `transactions` + `categories` (primitive columns, indices, soft delete, FK `SET_NULL`); `TransactionDao`/`CategoryDao`; `data/repo/` repositories that map entities to `domain/model` (thin mapping per §7); `data/seed/` first-run seeder (system categories + one example transaction).
-- **`core/crypto/`** — (M4) `SmsRawEncryptor` wraps Tink's `Aead` with a Keystore-backed DEK. The cipher is `AES-256-GCM`. The associated data is the transaction ULID, so a smsRaw payload that's been moved between rows fails to decrypt.
+- **`domain/insight/` + `ui/components/chart/`** — landed M3: pure analytics (`categoryBreakdown`, `dailyTotals`, `weekdayTotals`, `forecastMonthEnd`) computed on the default dispatcher, rendered by hand-rolled `TDonutChart`/`TBarChart` (Compose Canvas — no chart library).
+- **`domain/category/`** — landed M4 PR1: `suggestCategory` (deterministic, learned-then-bundled) + `BundledMerchantRules`; learned rules persist via `MerchantRuleStore` (DataStore JSON). See [ADR-0007](DECISIONS/0007-categorisation.md).
+- **`core/crypto/`** — (M4, later PR) `SmsRawEncryptor` wraps Tink's `Aead` with a Keystore-backed DEK. The cipher is `AES-256-GCM`. The associated data is the transaction ULID, so a smsRaw payload that's been moved between rows fails to decrypt.
 
 ## 4 · DI graph (Hilt)
 
@@ -60,4 +62,4 @@ Schema export is on (`exportSchema = true`, `room.schemaLocation = /schemas`); t
 - ~~Whether to expose Room entities directly to the domain layer or map through a separate `domain/model` set.~~ **Resolved in PR3:** thin mapping in `data/repo/Mappers.kt`; the domain never sees a Room type. Full DTO separation only if a Room column ever leaks an Android dependency upward.
 - ~~Whether `Pence` deserves arithmetic operators or only explicit `add`/`subtract`.~~ **Resolved in PR2:** operators yes, division no — see [ADR-0002](DECISIONS/0002-pence-arithmetic.md).
 
-— Last updated: M1 PR3.
+— Last updated: M4 PR1.

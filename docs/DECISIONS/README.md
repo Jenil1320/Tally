@@ -55,3 +55,4 @@ elaborates.
 - [0004 — Paparazzi screenshots via JUnit Vintage; goldens excluded on CI for now](0004-paparazzi-screenshots.md)
 - [0005 — Transaction amount is signed in spend terms](0005-transaction-amount-sign.md)
 - [0006 — Drop the splits feature; log your own share](0006-drop-splits.md)
+- [0007 — Categorisation is deterministic and local; learned rules in DataStore](0007-categorisation.md)
