@@ -10,8 +10,8 @@ android {
     namespace = "com.tally"
     defaultConfig {
         applicationId = "com.tally"
-        versionCode = 1
-        versionName = "0.1.0-m1"
+        versionCode = 5
+        versionName = "0.5.0"
         resourceConfigurations += setOf("en", "en-rGB")
     }
     // Room schema export — the migration test (ARCHITECTURE §6) reads these.

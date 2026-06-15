@@ -2,7 +2,7 @@
 
 Single-user, GBP-only, dark-themed Android personal expense tracker. Manual entry + opt-in SMS ingestion + 22:00 daily reminder + deterministic insights. Local-first, biometric-locked, no telemetry, observational voice.
 
-> **Status:** core complete (`v0.4.0`). Manual capture, deterministic auto-categorisation, insights (donut/trend/rhythm/forecast), and the 22:00 reminder all ship and run on-device. SMS import, CSV import, biometric lock, and export are deferred (see [ADR-0008](docs/DECISIONS/0008-ship-core-defer-rest.md)). See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the shape and [`docs/DECISIONS/`](docs/DECISIONS/) for ADRs.
+> **Status:** core complete (`v0.5.0`). Manual capture (with editable date, edit/delete/duplicate), deterministic auto-categorisation, an interactive Insights view (filter categories to re-slice donut/trend/rhythm/forecast), and the 22:00 reminder all ship and run on-device. SMS import, CSV import, biometric lock, and export are deferred (see [ADR-0008](docs/DECISIONS/0008-ship-core-defer-rest.md)). See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the shape and [`docs/DECISIONS/`](docs/DECISIONS/) for ADRs.
 
 ## Quick start (local dev)
 
@@ -67,6 +67,8 @@ Read [`docs/PRIVACY.md`](docs/PRIVACY.md) and §2 of the PM Handoff before contr
 | `v0.2-m2` | Capture: Add sheet, keypad, 22:00 reminder. (Splits dropped — see ADR-0006.) | ✅ done |
 | `v0.3-m3` | Insights: categories, trend, rhythm, forecast. | ✅ done |
 | `v0.4.0` | Auto-categoriser (merchant→category, learns from corrections). | ✅ done |
+| `v0.4.1` | Edit / delete / duplicate transactions. | ✅ done |
+| `v0.5.0` | Rent + Subscriptions categories, editable transaction dates, interactive Insights category filter. | ✅ done |
 | `v0.4-m4` | SMS & CSV import. | ⏸ deferred (ADR-0008) |
 | `v0.5-m5` | Polish: outliers, monthly report, biometric, export. | ⏸ deferred (ADR-0008) |
 | `v0.6-m6` | Hardening: cold-start budget, internal Play track. | ⏸ deferred (ADR-0008) |
