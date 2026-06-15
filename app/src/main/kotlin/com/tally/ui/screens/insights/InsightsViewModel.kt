@@ -15,11 +15,13 @@ import com.tally.domain.repo.CategoryRepository
 import com.tally.domain.repo.TransactionRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
@@ -28,10 +30,19 @@ import kotlinx.datetime.plus
 import kotlinx.datetime.toLocalDateTime
 import javax.inject.Inject
 
+/** A toggleable filter chip for one category present this month. */
+data class CategoryChip(
+    val id: String?,
+    val name: String,
+    val colorIndex: Int?,
+    val included: Boolean,
+)
+
 data class InsightsUiState(
     val monthLabel: String = "",
     val total: Pence = Pence.ZERO,
     val forecast: Pence = Pence.ZERO,
+    val transactionCount: Int = 0,
     val breakdown: List<CategorySpend> = emptyList(),
     // Trend: spend per day of the month (index 0 = the 1st).
     val dailyTotals: List<Pence> = emptyList(),
@@ -39,10 +50,17 @@ data class InsightsUiState(
     // Rhythm: spend per weekday (index 0 = Monday).
     val weekdayTotals: List<Pence> = emptyList(),
     val peakWeekdayIndex: Int = -1,
+    // Filter chips for the categories present this month.
+    val chips: List<CategoryChip> = emptyList(),
+    val monthHasTransactions: Boolean = false,
     val loaded: Boolean = false,
 )
 
-/** This month's total, forecast, category breakdown, daily trend, and weekday rhythm. */
+/**
+ * This month's analysis, re-sliced by a category filter. All figures (total,
+ * forecast, breakdown, trend, rhythm) reflect only the *included* categories;
+ * toggling a chip excludes that category. Computed on the default dispatcher.
+ */
 @HiltViewModel
 class InsightsViewModel
     @Inject
@@ -53,6 +71,14 @@ class InsightsViewModel
         @DefaultDispatcher defaultDispatcher: CoroutineDispatcher,
     ) : ViewModel() {
         private val timeZone = TimeZone.currentSystemDefault()
+        private val excludedCategoryIds = MutableStateFlow<Set<String?>>(emptySet())
+
+        /** Include/exclude a category from the analysis. */
+        fun toggleCategory(categoryId: String?) {
+            excludedCategoryIds.update { current ->
+                if (categoryId in current) current - categoryId else current + categoryId
+            }
+        }
 
         val uiState: StateFlow<InsightsUiState> =
             run {
@@ -61,21 +87,35 @@ class InsightsViewModel
                 val monthStart = firstOfMonth.atStartOfDayIn(timeZone)
                 val monthEnd = firstOfMonth.plus(1, DateTimeUnit.MONTH).atStartOfDayIn(timeZone)
                 val monthName = date.month.name.lowercase().replaceFirstChar { it.uppercase() }
+
                 combine(
                     transactionRepository.observeBetween(monthStart, monthEnd),
                     categoryRepository.observeAll(),
-                ) { transactions, categories ->
-                    val total = transactions.fold(Pence.ZERO) { acc, t -> acc + t.amount }
-                    val weekday = weekdayTotals(transactions, timeZone)
+                    excludedCategoryIds,
+                ) { transactions, categories, excluded ->
+                    // Chips reflect every category present this month, ordered by
+                    // total spend (unfiltered) so toggling one off doesn't reorder them.
+                    val chips =
+                        categoryBreakdown(transactions, categories).map { spend ->
+                            CategoryChip(spend.categoryId, spend.name, spend.colorIndex, spend.categoryId !in excluded)
+                        }
+
+                    val filtered = transactions.filter { it.categoryId !in excluded }
+                    val total = filtered.fold(Pence.ZERO) { acc, t -> acc + t.amount }
+                    val weekday = weekdayTotals(filtered, timeZone)
+
                     InsightsUiState(
                         monthLabel = "$monthName ${date.year}",
                         total = total,
                         forecast = forecastMonthEnd(total, date.dayOfMonth, firstOfMonth.lengthOfMonth()),
-                        breakdown = categoryBreakdown(transactions, categories),
-                        dailyTotals = dailyTotals(transactions, timeZone, firstOfMonth),
+                        transactionCount = filtered.size,
+                        breakdown = categoryBreakdown(filtered, categories),
+                        dailyTotals = dailyTotals(filtered, timeZone, firstOfMonth),
                         todayIndex = date.dayOfMonth - 1,
                         weekdayTotals = weekday,
                         peakWeekdayIndex = weekday.indices.maxByOrNull { weekday[it].value } ?: -1,
+                        chips = chips,
+                        monthHasTransactions = transactions.isNotEmpty(),
                         loaded = true,
                     )
                 }.flowOn(defaultDispatcher)

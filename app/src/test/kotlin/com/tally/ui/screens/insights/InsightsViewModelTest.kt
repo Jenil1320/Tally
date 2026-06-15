@@ -47,4 +47,25 @@ class InsightsViewModelTest {
                 cancelAndIgnoreRemainingEvents()
             }
         }
+
+    @Test fun `toggling a category off removes it from the analysis`() =
+        runTest {
+            transactions.add(NewTransaction(Pence(900), "Train", occurredAt = now, categoryId = "c2"))
+            transactions.add(NewTransaction(Pence(600), "Lunch", occurredAt = now, categoryId = "c1"))
+            val viewModel = InsightsViewModel(transactions, categories, clock, UnconfinedTestDispatcher())
+
+            viewModel.uiState.test {
+                var state = awaitItem()
+                while (!state.loaded) state = awaitItem()
+                assertThat(state.total).isEqualTo(Pence(1500))
+                assertThat(state.chips.map { it.name }).containsExactly("Transport", "Eating out").inOrder()
+
+                viewModel.toggleCategory("c2") // exclude Transport
+                var filtered = awaitItem()
+                while (filtered.total != Pence(600)) filtered = awaitItem()
+                assertThat(filtered.breakdown.map { it.name }).containsExactly("Eating out")
+                assertThat(filtered.chips.first { it.name == "Transport" }.included).isFalse()
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
 }

@@ -1,6 +1,9 @@
 package com.tally.ui.screens.insights
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,10 +16,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -41,16 +46,17 @@ fun InsightsScreen(
     viewModel: InsightsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    InsightsContent(state = state, modifier = modifier)
+    InsightsContent(state = state, onToggleCategory = viewModel::toggleCategory, modifier = modifier)
 }
 
 @Composable
 private fun InsightsContent(
     state: InsightsUiState,
+    onToggleCategory: (String?) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = TallyTheme.colors
-    if (state.loaded && state.breakdown.isEmpty()) {
+    if (state.loaded && !state.monthHasTransactions) {
         Box(modifier = modifier.fillMaxSize().background(colors.bg0), contentAlignment = Alignment.Center) {
             TText("No spending this month yet.", color = colors.textMid)
         }
@@ -64,9 +70,14 @@ private fun InsightsContent(
         item {
             Column(verticalArrangement = Arrangement.spacedBy(TallyTheme.spacing.xs)) {
                 TText("Insights", style = TallyTheme.typography.headline)
-                TText(state.monthLabel, style = TallyTheme.typography.caption, color = colors.textLo)
+                TText(
+                    text = "${state.monthLabel} · ${state.transactionCount} transactions",
+                    style = TallyTheme.typography.caption,
+                    color = colors.textLo,
+                )
             }
         }
+        item { FilterChips(chips = state.chips, onToggle = onToggleCategory) }
         item {
             Box(modifier = Modifier.fillMaxWidth().padding(vertical = TallyTheme.spacing.sm), contentAlignment = Alignment.Center) {
                 TDonutChart(
@@ -117,9 +128,47 @@ private fun InsightsContent(
 }
 
 @Composable
+private fun FilterChips(
+    chips: List<CategoryChip>,
+    onToggle: (String?) -> Unit,
+) {
+    val colors = TallyTheme.colors
+    Row(
+        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(TallyTheme.spacing.sm),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        chips.forEach { chip ->
+            Row(
+                modifier =
+                    Modifier
+                        .clip(TallyTheme.shapes.pill)
+                        .background(if (chip.included) colors.accentWash else colors.bg2)
+                        .border(
+                            width = 1.dp,
+                            color = if (chip.included) colors.accent else colors.line,
+                            shape = TallyTheme.shapes.pill,
+                        )
+                        .clickable { onToggle(chip.id) }
+                        .padding(horizontal = TallyTheme.spacing.md, vertical = TallyTheme.spacing.sm),
+                horizontalArrangement = Arrangement.spacedBy(TallyTheme.spacing.sm),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                TCatDot(color = sliceColor(chip.colorIndex))
+                TText(
+                    text = chip.name,
+                    style = TallyTheme.typography.label,
+                    color = if (chip.included) colors.textHi else colors.textLo,
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun ForecastCard(forecast: Pence) {
     val colors = TallyTheme.colors
-    TCard(modifier = Modifier.fillMaxWidth(), color = colors.bg1) {
+    TCard(modifier = Modifier.fillMaxWidth()) {
         TText("On pace for", style = TallyTheme.typography.caption, color = colors.textLo)
         Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(TallyTheme.spacing.sm)) {
             TNum(amount = forecast, size = TNumSize.Medium)
