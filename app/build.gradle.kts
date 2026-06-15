@@ -2,6 +2,7 @@ plugins {
     id("tally.android.application")
     id("tally.android.compose")
     id("tally.android.hilt")
+    alias(libs.plugins.paparazzi)
 }
 
 android {
@@ -39,6 +40,23 @@ dependencies {
     testImplementation(libs.bundles.test.unit)
     testRuntimeOnly(libs.junit.jupiter.engine)
 
+    // Paparazzi screenshot tests use JUnit4 rules; the Vintage engine lets them
+    // run on the JUnit Platform alongside the JUnit5 unit tests. The Paparazzi
+    // runtime itself is added by the plugin.
+    testImplementation(libs.junit4)
+    testRuntimeOnly(libs.junit.vintage.engine)
+
     androidTestImplementation(libs.androidx.room.testing)
     androidTestImplementation(libs.androidx.work.testing)
+}
+
+// Paparazzi goldens are recorded on the developer's OS (Windows). Cross-OS font
+// rasterisation differs at the sub-pixel level, so a Linux CI run can diff
+// against Windows goldens. Until goldens are re-recorded on Linux, CI excludes
+// the screenshot tests by passing -PexcludeScreenshotTests; they still run (and
+// must pass) on the developer's machine. See docs/DECISIONS/0004.
+tasks.withType<Test>().configureEach {
+    if (project.hasProperty("excludeScreenshotTests")) {
+        exclude("**/*ScreenshotTest*")
+    }
 }
