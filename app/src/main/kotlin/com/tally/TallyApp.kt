@@ -4,10 +4,14 @@ import android.app.Application
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
 import com.tally.data.seed.DatabaseSeeder
+import com.tally.domain.reminder.ReminderPreferences
+import com.tally.domain.reminder.ReminderScheduler
+import com.tally.work.ReminderNotifier
 import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -26,11 +30,22 @@ class TallyApp : Application(), Configuration.Provider {
 
     @Inject lateinit var databaseSeeder: DatabaseSeeder
 
+    @Inject lateinit var reminderPreferences: ReminderPreferences
+
+    @Inject lateinit var reminderScheduler: ReminderScheduler
+
     private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override fun onCreate() {
         super.onCreate()
-        applicationScope.launch { databaseSeeder.seedIfEmpty() }
+        ReminderNotifier.ensureChannel(this)
+        applicationScope.launch {
+            databaseSeeder.seedIfEmpty()
+            val reminder = reminderPreferences.state.first()
+            if (reminder.enabled) {
+                reminderScheduler.schedule(reminder.hour, reminder.minute)
+            }
+        }
     }
 
     override val workManagerConfiguration: Configuration
