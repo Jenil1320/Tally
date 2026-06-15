@@ -3,6 +3,8 @@ package com.tally.ui.components.chart
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.ui.Alignment
@@ -47,6 +49,25 @@ class ChartsScreenshotTest {
                             TNum(amount = Pence(123_456), size = TNumSize.Medium)
                         }
                     }
+                }
+            }
+        }
+    }
+
+    @Test
+    fun weekdayBars() {
+        paparazzi.snapshot {
+            TallyTheme {
+                val colors = TallyTheme.colors
+                Box(
+                    modifier = Modifier.background(colors.bg0).padding(24.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    TBarChart(
+                        values = listOf(12f, 5f, 18f, 9f, 22f, 30f, 7f),
+                        highlightIndex = 5,
+                        modifier = Modifier.fillMaxWidth().height(120.dp),
+                    )
                 }
             }
         }

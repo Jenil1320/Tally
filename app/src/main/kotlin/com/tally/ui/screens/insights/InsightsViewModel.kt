@@ -7,6 +7,10 @@ import com.tally.core.time.Clock
 import com.tally.di.DefaultDispatcher
 import com.tally.domain.insight.CategorySpend
 import com.tally.domain.insight.categoryBreakdown
+import com.tally.domain.insight.dailyTotals
+import com.tally.domain.insight.forecastMonthEnd
+import com.tally.domain.insight.lengthOfMonth
+import com.tally.domain.insight.weekdayTotals
 import com.tally.domain.repo.CategoryRepository
 import com.tally.domain.repo.TransactionRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -27,11 +31,18 @@ import javax.inject.Inject
 data class InsightsUiState(
     val monthLabel: String = "",
     val total: Pence = Pence.ZERO,
+    val forecast: Pence = Pence.ZERO,
     val breakdown: List<CategorySpend> = emptyList(),
+    // Trend: spend per day of the month (index 0 = the 1st).
+    val dailyTotals: List<Pence> = emptyList(),
+    val todayIndex: Int = -1,
+    // Rhythm: spend per weekday (index 0 = Monday).
+    val weekdayTotals: List<Pence> = emptyList(),
+    val peakWeekdayIndex: Int = -1,
     val loaded: Boolean = false,
 )
 
-/** This month's spending total and per-category breakdown for the Insights screen. */
+/** This month's total, forecast, category breakdown, daily trend, and weekday rhythm. */
 @HiltViewModel
 class InsightsViewModel
     @Inject
@@ -54,10 +65,17 @@ class InsightsViewModel
                     transactionRepository.observeBetween(monthStart, monthEnd),
                     categoryRepository.observeAll(),
                 ) { transactions, categories ->
+                    val total = transactions.fold(Pence.ZERO) { acc, t -> acc + t.amount }
+                    val weekday = weekdayTotals(transactions, timeZone)
                     InsightsUiState(
                         monthLabel = "$monthName ${date.year}",
-                        total = transactions.fold(Pence.ZERO) { acc, t -> acc + t.amount },
+                        total = total,
+                        forecast = forecastMonthEnd(total, date.dayOfMonth, firstOfMonth.lengthOfMonth()),
                         breakdown = categoryBreakdown(transactions, categories),
+                        dailyTotals = dailyTotals(transactions, timeZone, firstOfMonth),
+                        todayIndex = date.dayOfMonth - 1,
+                        weekdayTotals = weekday,
+                        peakWeekdayIndex = weekday.indices.maxByOrNull { weekday[it].value } ?: -1,
                         loaded = true,
                     )
                 }.flowOn(defaultDispatcher)

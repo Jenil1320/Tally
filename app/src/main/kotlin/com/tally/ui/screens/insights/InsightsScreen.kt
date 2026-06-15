@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -17,15 +18,19 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.tally.core.money.Pence
 import com.tally.domain.insight.CategorySpend
+import com.tally.ui.components.TCard
 import com.tally.ui.components.TCatDot
 import com.tally.ui.components.TNum
 import com.tally.ui.components.TNumSize
 import com.tally.ui.components.TText
 import com.tally.ui.components.chart.DonutSlice
+import com.tally.ui.components.chart.TBarChart
 import com.tally.ui.components.chart.TDonutChart
 import com.tally.ui.theme.TallyTheme
 import kotlin.math.roundToInt
@@ -54,7 +59,7 @@ private fun InsightsContent(
     LazyColumn(
         modifier = modifier.fillMaxSize().background(colors.bg0),
         contentPadding = PaddingValues(TallyTheme.spacing.lg),
-        verticalArrangement = Arrangement.spacedBy(TallyTheme.spacing.sm),
+        verticalArrangement = Arrangement.spacedBy(TallyTheme.spacing.md),
     ) {
         item {
             Column(verticalArrangement = Arrangement.spacedBy(TallyTheme.spacing.xs)) {
@@ -63,10 +68,7 @@ private fun InsightsContent(
             }
         }
         item {
-            Box(
-                modifier = Modifier.fillMaxWidth().padding(vertical = TallyTheme.spacing.lg),
-                contentAlignment = Alignment.Center,
-            ) {
+            Box(modifier = Modifier.fillMaxWidth().padding(vertical = TallyTheme.spacing.sm), contentAlignment = Alignment.Center) {
                 TDonutChart(
                     slices = state.breakdown.map { DonutSlice(it.fraction, sliceColor(it.colorIndex)) },
                     modifier = Modifier.size(220.dp),
@@ -78,9 +80,62 @@ private fun InsightsContent(
                 }
             }
         }
+        item { ForecastCard(forecast = state.forecast) }
         items(items = state.breakdown, key = { it.categoryId ?: "uncategorised" }) { slice ->
             LegendRow(slice)
         }
+        item {
+            ChartCard(title = "This month, day by day") {
+                TBarChart(
+                    values = state.dailyTotals.map { it.value.toFloat() },
+                    highlightIndex = state.todayIndex,
+                    modifier = Modifier.fillMaxWidth().height(96.dp),
+                )
+            }
+        }
+        item {
+            ChartCard(title = "By weekday") {
+                TBarChart(
+                    values = state.weekdayTotals.map { it.value.toFloat() },
+                    highlightIndex = state.peakWeekdayIndex,
+                    modifier = Modifier.fillMaxWidth().height(96.dp),
+                )
+                Row(modifier = Modifier.fillMaxWidth().padding(top = TallyTheme.spacing.xs)) {
+                    listOf("M", "T", "W", "T", "F", "S", "S").forEach { label ->
+                        TText(
+                            text = label,
+                            style = TallyTheme.typography.caption,
+                            color = colors.textLo,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ForecastCard(forecast: Pence) {
+    val colors = TallyTheme.colors
+    TCard(modifier = Modifier.fillMaxWidth(), color = colors.bg1) {
+        TText("On pace for", style = TallyTheme.typography.caption, color = colors.textLo)
+        Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(TallyTheme.spacing.sm)) {
+            TNum(amount = forecast, size = TNumSize.Medium)
+            TText("by month end", style = TallyTheme.typography.caption, color = colors.textLo, modifier = Modifier.padding(bottom = 2.dp))
+        }
+    }
+}
+
+@Composable
+private fun ChartCard(
+    title: String,
+    content: @Composable () -> Unit,
+) {
+    TCard(modifier = Modifier.fillMaxWidth()) {
+        TText(text = title, style = TallyTheme.typography.label, color = TallyTheme.colors.textMid)
+        Column(modifier = Modifier.padding(top = TallyTheme.spacing.sm)) { content() }
     }
 }
 
