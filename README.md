@@ -64,7 +64,7 @@ Read [`docs/PRIVACY.md`](docs/PRIVACY.md) and §2 of the PM Handoff before contr
 | Tag | Scope |
 |---|---|
 | `v0.1-m1` | Foundation: skeleton, theme, atoms, nav, Room v1, seed transaction. |
-| `v0.2-m2` | Capture: Add sheet, keypad, splits, 22:00 reminder. |
+| `v0.2-m2` | Capture: Add sheet, keypad, 22:00 reminder. (Splits dropped — see ADR-0006.) |
 | `v0.3-m3` | Insights: categories, trend, rhythm, forecast. |
 | `v0.4-m4` | SMS & import. |
 | `v0.5-m5` | Polish: outliers, monthly report, biometric, export. |

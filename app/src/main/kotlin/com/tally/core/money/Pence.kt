@@ -14,7 +14,8 @@ import kotlin.math.absoluteValue
  * that you cannot add is hostile to call sites, and the value class makes the
  * operators free. Division is *not* an operator — splitting money is lossy and
  * must go through [splitEvenly] so remainder pennies are accounted for, never
- * silently dropped.
+ * silently dropped. (The user-facing splits feature was dropped — ADR-0006 —
+ * but this primitive is kept as a general remainder-safe split.)
  *
  * @property value the amount in whole pence. `1234` is £12.34; `-500` is -£5.00.
  */
@@ -41,8 +42,8 @@ value class Pence(val value: Long) : Comparable<Pence> {
     /**
      * Splits this amount into [parts] shares that sum back to exactly this
      * amount. The remainder pennies (at most `parts - 1` of them) are spread
-     * one-per-share across the leading shares, so totals always reconcile —
-     * this is what the Add-sheet split feature (M2) is built on.
+     * one-per-share across the leading shares, so totals always reconcile.
+     * A general remainder-safe split (no caller today — see ADR-0006).
      *
      * @throws IllegalArgumentException if [parts] is not positive.
      */
