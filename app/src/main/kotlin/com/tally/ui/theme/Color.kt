@@ -64,11 +64,11 @@ private val neutral =
         val bg1 = oklch(0.250, 0.009, 240.0) // #1E2226 — card / list surface
         val bg2 = oklch(0.290, 0.010, 240.0) // #272C30 — elevated sheet / dialog
         val bg3 = oklch(0.335, 0.011, 240.0) // #32383C — input field / pressed
-        val line = oklch(0.400, 0.012, 240.0) // #42494E — visible border
+        val line = oklch(0.370, 0.012, 240.0) // #3A4146 — visible border (calm)
         val lineSoft = oklch(0.300, 0.010, 240.0) // #292F32 — hairline divider
         val textHi = oklch(0.9843, 0.0011, 197.14) // #F9FAFA — primary text (anchor)
         val textMid = oklch(0.760, 0.006, 240.0) // #AEB2B4 — secondary text
-        val textLo = oklch(0.580, 0.008, 240.0) // #767B7F — captions / meta
+        val textLo = oklch(0.620, 0.008, 240.0) // #82878B — captions / meta (AA on bg0)
         val textDim = oklch(0.440, 0.009, 240.0) // #4E5357 — disabled / placeholder
         val positive = oklch(0.76, 0.15, 158.0) // credits, refunds, money in
         val warning = oklch(0.78, 0.15, 75.0) // approaching a limit
@@ -76,22 +76,25 @@ private val neutral =
     }
 
 /**
- * The category-dot palette: evenly spread hues at a shared lightness/chroma so
- * no single category shouts. Used by `TCatDot` and the hand-rolled charts.
+ * The category-dot palette: a uniform lightness (0.74) and a softer chroma
+ * (0.105) than the jewels, on evenly-spaced hues. Uniform L/chroma means no
+ * category shouts louder than another (no implied ranking — fits the
+ * observational voice), and the softer chroma keeps a dot from ever reading as
+ * the user's vivid accent. Used by `TCatDot` and the hand-rolled charts.
  */
 private val categoryPalette: List<Color> =
-    // Hue order: red, orange, gold, green, teal, cyan, blue, indigo, violet, pink.
+    // Hue order: rose, orange, gold, lime, green, teal, blue, periwinkle, violet, pink.
     listOf(
-        oklch(0.72, 0.13, 25.0),
-        oklch(0.74, 0.13, 60.0),
-        oklch(0.80, 0.12, 95.0),
-        oklch(0.76, 0.13, 145.0),
-        oklch(0.74, 0.12, 178.0),
-        oklch(0.72, 0.12, 212.0),
-        oklch(0.70, 0.13, 250.0),
-        oklch(0.68, 0.14, 288.0),
-        oklch(0.70, 0.14, 320.0),
-        oklch(0.74, 0.13, 350.0),
+        oklch(0.74, 0.105, 15.0),
+        oklch(0.74, 0.105, 51.0),
+        oklch(0.74, 0.105, 87.0),
+        oklch(0.74, 0.105, 123.0),
+        oklch(0.74, 0.105, 159.0),
+        oklch(0.74, 0.105, 195.0),
+        oklch(0.74, 0.105, 231.0),
+        oklch(0.74, 0.105, 267.0),
+        oklch(0.74, 0.105, 303.0),
+        oklch(0.74, 0.105, 339.0),
     )
 
 /** Builds the full colour set for a chosen [jewel]. */
