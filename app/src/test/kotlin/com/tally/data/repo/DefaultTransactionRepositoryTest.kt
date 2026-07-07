@@ -69,6 +69,23 @@ class DefaultTransactionRepositoryTest {
             assertThat(repository.findById("missing")).isNull()
         }
 
+    @Test fun `updateCategory changes only the category`() =
+        runTest {
+            val id = repository.add(draft(merchant = "Coffee"))
+            repository.updateCategory(id, "cat2")
+            val updated = dao.findById(id)!!
+            assertThat(updated.categoryId).isEqualTo("cat2")
+            assertThat(updated.merchant).isEqualTo("Coffee")
+        }
+
+    @Test fun `topCategoryIds ranks live categories by frequency`() =
+        runTest {
+            repeat(3) { repository.add(draft(merchant = "a").copy(categoryId = "food")) }
+            repeat(1) { repository.add(draft(merchant = "b").copy(categoryId = "travel")) }
+            repeat(2) { repository.add(draft(merchant = "c").copy(categoryId = "shop")) }
+            assertThat(repository.topCategoryIds(2)).containsExactly("food", "shop").inOrder()
+        }
+
     @Test fun `update changes editable fields but preserves createdAt`() =
         runTest {
             val id = repository.add(draft(amount = 485, merchant = "Coffee"))

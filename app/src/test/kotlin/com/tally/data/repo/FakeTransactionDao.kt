@@ -31,6 +31,24 @@ class FakeTransactionDao : TransactionDao {
         rows.value = rows.value.map { if (it.id == transaction.id) transaction else it }
     }
 
+    override suspend fun updateCategory(
+        id: String,
+        categoryId: String?,
+    ) {
+        rows.value = rows.value.map { if (it.id == id) it.copy(categoryId = categoryId) else it }
+    }
+
+    override suspend fun topCategoryIds(limit: Int): List<String> =
+        rows.value
+            .filter { it.deletedAt == null }
+            .mapNotNull { it.categoryId }
+            .groupingBy { it }
+            .eachCount()
+            .entries
+            .sortedByDescending { it.value }
+            .take(limit)
+            .map { it.key }
+
     override suspend fun softDelete(
         id: String,
         deletedAt: Long,

@@ -24,6 +24,7 @@
         <activity
             android:name=".MainActivity"
             android:exported="true"
+            android:launchMode="singleTop"
             android:theme="@style/Theme.Tally"
             android:windowSoftInputMode="adjustResize">
             <intent-filter>
@@ -31,6 +32,27 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!--
+          Reads payment-app notifications to auto-log spending. Bound only by the
+          system (BIND_NOTIFICATION_LISTENER_SERVICE is signature-level) after the
+          user grants "Notification access" in Settings. exported=true is required
+          because the system process binds it. See ADR-0009.
+        -->
+        <service
+            android:name=".data.notify.TallyNotificationListenerService"
+            android:exported="true"
+            android:label="@string/notification_listener_label"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
+
+        <!-- Handles a category-button tap on a capture notification (no UI). -->
+        <receiver
+            android:name=".data.notify.CategorySelectionReceiver"
+            android:exported="false" />
 
     </application>
 </manifest>

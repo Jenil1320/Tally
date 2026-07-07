@@ -66,6 +66,18 @@ class DefaultTransactionRepository
             )
         }
 
+        override suspend fun updateCategory(
+            id: String,
+            categoryId: String?,
+        ) = withContext(ioDispatcher) {
+            dao.updateCategory(id, categoryId)
+        }
+
+        override suspend fun topCategoryIds(limit: Int): List<String> =
+            withContext(ioDispatcher) {
+                dao.topCategoryIds(limit)
+            }
+
         override suspend fun softDelete(id: String) =
             withContext(ioDispatcher) {
                 dao.softDelete(id, clock.nowMillis())

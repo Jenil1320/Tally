@@ -57,3 +57,4 @@ elaborates.
 - [0006 — Drop the splits feature; log your own share](0006-drop-splits.md)
 - [0007 — Categorisation is deterministic and local; learned rules in DataStore](0007-categorisation.md)
 - [0008 — Ship the core; defer SMS/CSV import, biometric, and export](0008-ship-core-defer-rest.md)
+- [0009 — Auto-capture spending from payment notifications](0009-notification-ingestion.md)

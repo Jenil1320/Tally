@@ -6,6 +6,7 @@ import androidx.work.Configuration
 import com.tally.data.seed.DatabaseSeeder
 import com.tally.domain.reminder.ReminderPreferences
 import com.tally.domain.reminder.ReminderScheduler
+import com.tally.work.CaptureNotifier
 import com.tally.work.ReminderNotifier
 import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.CoroutineScope
@@ -39,6 +40,7 @@ class TallyApp : Application(), Configuration.Provider {
     override fun onCreate() {
         super.onCreate()
         ReminderNotifier.ensureChannel(this)
+        CaptureNotifier.ensureChannel(this)
         applicationScope.launch {
             databaseSeeder.ensureSetup()
             val reminder = reminderPreferences.state.first()

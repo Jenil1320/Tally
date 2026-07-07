@@ -14,6 +14,7 @@ import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -44,7 +45,11 @@ import com.tally.ui.theme.TallyTheme
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TallyAppScaffold(navController: NavHostController = rememberNavController()) {
+fun TallyAppScaffold(
+    navController: NavHostController = rememberNavController(),
+    openEditTransactionId: String? = null,
+    onEditConsumed: () -> Unit = {},
+) {
     val colors = TallyTheme.colors
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = backStackEntry?.destination
@@ -55,6 +60,14 @@ fun TallyAppScaffold(navController: NavHostController = rememberNavController())
     fun openSheet(transactionId: String?) {
         editingId = transactionId
         sheetOpen = true
+    }
+
+    // A capture-notification tap deep-links here to edit that transaction.
+    LaunchedEffect(openEditTransactionId) {
+        if (openEditTransactionId != null) {
+            openSheet(openEditTransactionId)
+            onEditConsumed()
+        }
     }
 
     Scaffold(

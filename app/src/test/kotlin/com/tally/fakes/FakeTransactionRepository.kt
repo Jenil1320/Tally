@@ -67,6 +67,23 @@ class FakeTransactionRepository(
         return id
     }
 
+    override suspend fun updateCategory(
+        id: String,
+        categoryId: String?,
+    ) {
+        items.value = items.value.map { if (it.id == id) it.copy(categoryId = categoryId) else it }
+    }
+
+    override suspend fun topCategoryIds(limit: Int): List<String> =
+        items.value
+            .mapNotNull { it.categoryId }
+            .groupingBy { it }
+            .eachCount()
+            .entries
+            .sortedByDescending { it.value }
+            .take(limit)
+            .map { it.key }
+
     override suspend fun softDelete(id: String) {
         items.value = items.value.filterNot { it.id == id }
     }

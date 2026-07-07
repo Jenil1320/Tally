@@ -34,6 +34,15 @@ interface TransactionRepository {
         draft: NewTransaction,
     )
 
+    /** Sets only the category of a transaction (the notification quick-picker). */
+    suspend fun updateCategory(
+        id: String,
+        categoryId: String?,
+    )
+
+    /** The most-used category ids across live rows, most-frequent first, up to [limit]. */
+    suspend fun topCategoryIds(limit: Int): List<String>
+
     /** Soft-deletes (tombstones) a transaction. */
     suspend fun softDelete(id: String)
 

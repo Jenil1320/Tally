@@ -1,11 +1,16 @@
 package com.tally.ui.screens.settings
 
 import android.Manifest
+import android.content.ComponentName
+import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
+import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -15,13 +20,22 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.tally.data.notify.TallyNotificationListenerService
 import com.tally.ui.components.TCard
 import com.tally.ui.components.TText
 import com.tally.ui.theme.TallyTheme
@@ -34,14 +48,29 @@ fun SettingsScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
+    // The OS "Notification access" grant is not a runtime permission and can be
+    // revoked outside the app, so re-check it whenever Settings resumes.
+    var accessGranted by remember { mutableStateOf(isNotificationAccessGranted(context)) }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer =
+            LifecycleEventObserver { _, event ->
+                if (event == Lifecycle.Event.ON_RESUME) {
+                    accessGranted = isNotificationAccessGranted(context)
+                }
+            }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
     // On Android 13+ the reminder needs POST_NOTIFICATIONS; ask only when the
     // user turns the reminder on (contextual permission per the constitution).
-    val permissionLauncher =
+    val reminderPermissionLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
             viewModel.setReminderEnabled(true)
         }
 
-    fun onToggle(enabled: Boolean) {
+    fun onReminderToggle(enabled: Boolean) {
         if (!enabled) {
             viewModel.setReminderEnabled(false)
             return
@@ -51,19 +80,50 @@ fun SettingsScreen(
                 ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
                 PackageManager.PERMISSION_GRANTED
         if (needsPermission) {
-            permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            reminderPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         } else {
             viewModel.setReminderEnabled(true)
         }
     }
 
-    SettingsContent(state = state, onReminderToggle = ::onToggle, modifier = modifier)
+    // Capture also posts confirmation notifications, so ensure POST_NOTIFICATIONS
+    // first; once that resolves, send the user to grant the separate, essential
+    // "Notification access" (which lets Tally read Google Pay's notifications).
+    val capturePermissionLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
+            if (!accessGranted) openNotificationAccessSettings(context)
+        }
+
+    fun onCaptureToggle(enabled: Boolean) {
+        viewModel.setCaptureEnabled(enabled)
+        if (!enabled) return
+        val needsPost =
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
+                PackageManager.PERMISSION_GRANTED
+        when {
+            needsPost -> capturePermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            !accessGranted -> openNotificationAccessSettings(context)
+        }
+    }
+
+    SettingsContent(
+        state = state,
+        accessGranted = accessGranted,
+        onReminderToggle = ::onReminderToggle,
+        onCaptureToggle = ::onCaptureToggle,
+        onOpenAccessSettings = { openNotificationAccessSettings(context) },
+        modifier = modifier,
+    )
 }
 
 @Composable
 private fun SettingsContent(
     state: SettingsUiState,
+    accessGranted: Boolean,
     onReminderToggle: (Boolean) -> Unit,
+    onCaptureToggle: (Boolean) -> Unit,
+    onOpenAccessSettings: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = TallyTheme.colors
@@ -74,37 +134,95 @@ private fun SettingsContent(
         TText(text = "Settings", style = TallyTheme.typography.headline)
 
         TCard {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    TText(text = "Daily reminder")
-                    TText(
-                        text = "A nudge at ${state.reminderTime} to log the day.",
-                        style = TallyTheme.typography.caption,
-                        color = colors.textLo,
-                    )
+            SettingRow(
+                title = "Daily reminder",
+                caption = "A nudge at ${state.reminderTime} to log the day.",
+                checked = state.reminderEnabled,
+                onCheckedChange = onReminderToggle,
+            )
+        }
+
+        TCard {
+            val needsGrant = state.captureEnabled && !accessGranted
+            val caption =
+                when {
+                    !state.captureEnabled -> "Log spending automatically from Google Pay notifications."
+                    needsGrant -> "Grant Tally ‘Notification access’ to start capturing. Tap to open settings."
+                    else -> "On. New payments log automatically; edit or remove them like any entry."
                 }
-                Switch(
-                    checked = state.reminderEnabled,
-                    onCheckedChange = onReminderToggle,
-                    colors =
-                        SwitchDefaults.colors(
-                            checkedThumbColor = colors.onAccent,
-                            checkedTrackColor = colors.accent,
-                            uncheckedThumbColor = colors.textLo,
-                            uncheckedTrackColor = colors.bg3,
-                        ),
-                )
-            }
+            SettingRow(
+                title = "Capture from Google Pay",
+                caption = caption,
+                checked = state.captureEnabled,
+                onCheckedChange = onCaptureToggle,
+                onCaptionClick = if (needsGrant) onOpenAccessSettings else null,
+            )
         }
 
         TText(
-            text = "SMS sources, export, and biometric lock arrive in later milestones.",
+            text = "Export and biometric lock arrive in later milestones.",
             style = TallyTheme.typography.caption,
             color = colors.textDim,
         )
     }
+}
+
+@Composable
+private fun SettingRow(
+    title: String,
+    caption: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    onCaptionClick: (() -> Unit)? = null,
+) {
+    val colors = TallyTheme.colors
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            TText(text = title)
+            TText(
+                text = caption,
+                style = TallyTheme.typography.caption,
+                color = colors.textLo,
+                modifier = if (onCaptionClick != null) Modifier.clickable { onCaptionClick() } else Modifier,
+            )
+        }
+        Switch(
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+            colors =
+                SwitchDefaults.colors(
+                    checkedThumbColor = colors.onAccent,
+                    checkedTrackColor = colors.accent,
+                    uncheckedThumbColor = colors.textLo,
+                    uncheckedTrackColor = colors.bg3,
+                ),
+        )
+    }
+}
+
+/** True when Tally holds the OS "Notification access" grant. */
+private fun isNotificationAccessGranted(context: Context): Boolean =
+    NotificationManagerCompat.getEnabledListenerPackages(context).contains(context.packageName)
+
+/**
+ * Opens the system "Notification access" screen. On API 30+ deep-links straight
+ * to Tally's own toggle; below that (and on any failure) falls back to the full
+ * listener list.
+ */
+private fun openNotificationAccessSettings(context: Context) {
+    val fallback = Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
+    val intent =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            val component = ComponentName(context, TallyNotificationListenerService::class.java)
+            Intent(Settings.ACTION_NOTIFICATION_LISTENER_DETAIL_SETTINGS)
+                .putExtra(Settings.EXTRA_NOTIFICATION_LISTENER_COMPONENT_NAME, component.flattenToString())
+        } else {
+            fallback
+        }
+    runCatching { context.startActivity(intent) }
+        .onFailure { runCatching { context.startActivity(fallback) } }
 }

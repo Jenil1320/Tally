@@ -69,6 +69,7 @@ Read [`docs/PRIVACY.md`](docs/PRIVACY.md) and §2 of the PM Handoff before contr
 | `v0.4.0` | Auto-categoriser (merchant→category, learns from corrections). | ✅ done |
 | `v0.4.1` | Edit / delete / duplicate transactions. | ✅ done |
 | `v0.5.0` | Rent + Subscriptions categories, editable transaction dates, interactive Insights category filter. | ✅ done |
+| `m4/pr2` | Auto-capture spending from Google Pay notifications (opt-in, best-effort). | ✅ done (ADR-0009) |
 | `v0.4-m4` | SMS & CSV import. | ⏸ deferred (ADR-0008) |
 | `v0.5-m5` | Polish: outliers, monthly report, biometric, export. | ⏸ deferred (ADR-0008) |
 | `v0.6-m6` | Hardening: cold-start budget, internal Play track. | ⏸ deferred (ADR-0008) |

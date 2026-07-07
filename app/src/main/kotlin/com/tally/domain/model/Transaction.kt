@@ -33,6 +33,13 @@ enum class TransactionSource {
     /** Parsed from a bank SMS the user granted access to (M4). */
     SMS,
 
+    /**
+     * Auto-captured from a payment app's notification (Google Pay / Wallet), read
+     * via a [NotificationListenerService][android.service.notification.NotificationListenerService]
+     * the user granted access to. Best-effort — the user can edit or remove it.
+     */
+    NOTIFICATION,
+
     /** Brought in by the CSV importer (M4). */
     IMPORT,
 }
