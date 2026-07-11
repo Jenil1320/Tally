@@ -43,6 +43,19 @@ interface TransactionDao {
         categoryId: String?,
     )
 
+    /** Count of live rows matching a source + amount + merchant + time — used to de-dup captures. */
+    @Query(
+        "SELECT COUNT(*) FROM transactions " +
+            "WHERE deletedAt IS NULL AND source = :source AND amount = :amount " +
+            "AND merchant = :merchant AND occurredAt = :occurredAt",
+    )
+    suspend fun countMatching(
+        source: String,
+        amount: Long,
+        merchant: String,
+        occurredAt: Long,
+    ): Int
+
     /** Category ids of live rows, most-used first, capped at [limit]. */
     @Query(
         "SELECT categoryId FROM transactions " +

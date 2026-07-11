@@ -31,6 +31,18 @@ class NotificationParserTest {
         assertThat(result.merchant).isEqualTo("COSTA COFFEE")
     }
 
+    @Test fun `cashback in the card name is not mistaken for a credit`() {
+        // Verbatim from the owner's Pixel 7 — the card is a "Platinum Cashback" card.
+        val result = parsePayment(notif(title = "AMAZON CO UK RETAIL", text = "£36.99 with Platinum Cashback Everyday Credit Card ••1001"))
+        assertThat(result).isNotNull()
+        assertThat(result!!.amount.value).isEqualTo(3699L)
+        assertThat(result.merchant).isEqualTo("AMAZON CO UK RETAIL")
+    }
+
+    @Test fun `a genuine cashback credit is still ignored`() {
+        assertThat(parsePayment(notif(title = "Google Pay", text = "You earned £5.00 cashback"))).isNull()
+    }
+
     @Test fun `card purchase with 'at' merchant`() {
         val result = parsePayment(notif(title = "Google Wallet", text = "You spent £4.20 at Pret A Manger"))
         assertThat(result).isNotNull()

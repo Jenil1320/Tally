@@ -1,5 +1,6 @@
 package com.tally.domain.repo
 
+import com.tally.core.money.Pence
 import com.tally.domain.model.NewTransaction
 import com.tally.domain.model.Transaction
 import kotlinx.coroutines.flow.Flow
@@ -42,6 +43,17 @@ interface TransactionRepository {
 
     /** The most-used category ids across live rows, most-frequent first, up to [limit]. */
     suspend fun topCategoryIds(limit: Int): List<String>
+
+    /**
+     * True if a notification-sourced transaction with this exact amount, merchant,
+     * and time already exists — the de-dup guard so rescanning the notification
+     * shade can't log the same payment twice.
+     */
+    suspend fun notificationTransactionExists(
+        amount: Pence,
+        merchant: String,
+        occurredAt: Instant,
+    ): Boolean
 
     /** Soft-deletes (tombstones) a transaction. */
     suspend fun softDelete(id: String)

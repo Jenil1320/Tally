@@ -80,6 +80,13 @@ private val WITH_CARD_REGEX =
 private val CARD_MASK_REGEX = Regex("""[•·∙・‧⋅*]+\s?\d{3,4}""")
 
 /**
+ * The "with <card> ••1234" tail of a Wallet line, to the end of its line. Stripped
+ * before credit/promo keyword checks so a card *named* e.g. "Platinum Cashback
+ * Everyday Credit Card" doesn't get mistaken for a cashback credit.
+ */
+private val CARD_CLAUSE_REGEX = Regex("""\bwith\b.*""", RegexOption.IGNORE_CASE)
+
+/**
  * Extracts a completed outgoing payment from a payment-app notification, or null
  * when the text isn't a clear GBP spend. Deterministic and pure (no AI, no
  * Android) — the app is local-first and this is unit-tested without a device.
@@ -102,8 +109,11 @@ fun parsePayment(raw: RawNotification): ParsedPayment? {
     if (blob.isBlank()) return null
 
     val lower = blob.lowercase()
-    if (CREDIT_SIGNALS.any { lower.contains(it) }) return null
-    if (NOISE_SIGNALS.any { lower.contains(it) }) return null
+    // Credit/promo checks ignore the "with <card>…" tail, so a card named after a
+    // rewards/cashback scheme doesn't get a genuine purchase rejected.
+    val signalText = blob.replace(CARD_CLAUSE_REGEX, " ").lowercase()
+    if (CREDIT_SIGNALS.any { signalText.contains(it) }) return null
+    if (NOISE_SIGNALS.any { signalText.contains(it) }) return null
 
     val amount = extractAmount(blob) ?: return null
     if (amount.value <= 0) return null

@@ -1,8 +1,10 @@
 package com.tally.fakes
 
+import com.tally.core.money.Pence
 import com.tally.core.time.Clock
 import com.tally.domain.model.NewTransaction
 import com.tally.domain.model.Transaction
+import com.tally.domain.model.TransactionSource
 import com.tally.domain.repo.TransactionRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -83,6 +85,18 @@ class FakeTransactionRepository(
             .sortedByDescending { it.value }
             .take(limit)
             .map { it.key }
+
+    override suspend fun notificationTransactionExists(
+        amount: Pence,
+        merchant: String,
+        occurredAt: Instant,
+    ): Boolean =
+        items.value.any {
+            it.source == TransactionSource.NOTIFICATION &&
+                it.amount == amount &&
+                it.merchant == merchant &&
+                it.occurredAt == occurredAt
+        }
 
     override suspend fun softDelete(id: String) {
         items.value = items.value.filterNot { it.id == id }

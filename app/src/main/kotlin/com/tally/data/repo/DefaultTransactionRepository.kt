@@ -1,11 +1,13 @@
 package com.tally.data.repo
 
 import com.tally.core.id.UlidGenerator
+import com.tally.core.money.Pence
 import com.tally.core.time.Clock
 import com.tally.data.db.dao.TransactionDao
 import com.tally.di.IoDispatcher
 import com.tally.domain.model.NewTransaction
 import com.tally.domain.model.Transaction
+import com.tally.domain.model.TransactionSource
 import com.tally.domain.repo.TransactionRepository
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
@@ -76,6 +78,20 @@ class DefaultTransactionRepository
         override suspend fun topCategoryIds(limit: Int): List<String> =
             withContext(ioDispatcher) {
                 dao.topCategoryIds(limit)
+            }
+
+        override suspend fun notificationTransactionExists(
+            amount: Pence,
+            merchant: String,
+            occurredAt: Instant,
+        ): Boolean =
+            withContext(ioDispatcher) {
+                dao.countMatching(
+                    source = TransactionSource.NOTIFICATION.name,
+                    amount = amount.value,
+                    merchant = merchant,
+                    occurredAt = occurredAt.toEpochMilliseconds(),
+                ) > 0
             }
 
         override suspend fun softDelete(id: String) =

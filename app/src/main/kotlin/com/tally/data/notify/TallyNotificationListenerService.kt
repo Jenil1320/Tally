@@ -3,6 +3,7 @@ package com.tally.data.notify
 import android.app.Notification
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
+import android.util.Log
 import com.tally.core.money.MoneyFormat
 import com.tally.di.IoDispatcher
 import com.tally.domain.category.MerchantRuleStore
@@ -32,14 +33,15 @@ import javax.inject.Inject
  *
  * Bound by the system once the user grants "Notification access" in Settings;
  * gated additionally by [NotificationIngestPreferences] so the user can pause
- * capture in-app. Parsing is delegated to the pure [parsePayment]; the DB write
- * happens off the main thread (`onNotificationPosted` runs on the main thread).
+ * capture in-app. Parsing is delegated to the pure [parsePayment]; DB writes
+ * happen off the main thread.
  *
- * **Best-effort by design** (see ADR-0009): notifications missed while this
- * service is unbound are not recoverable (there is no history API), so capture is
- * a helper, not a system of record — the user reconciles by editing/adding
- * entries. Raw notification text is deliberately **not** persisted in this
- * version (it would need the deferred at-rest encryption; see PRIVACY.md).
+ * Captures both live posts ([onNotificationPosted]) **and** whatever is already
+ * in the shade when the listener (re)connects ([onListenerConnected] scans
+ * [getActiveNotifications]) — so a payment that arrived before the service was
+ * bound/armed still gets picked up. De-duplication is durable: a payment already
+ * stored (same amount/merchant/time) is skipped, so rescans never double-log.
+ * Raw notification text is not persisted (see PRIVACY.md / ADR-0009).
  */
 @AndroidEntryPoint
 class TallyNotificationListenerService : NotificationListenerService() {
@@ -56,7 +58,7 @@ class TallyNotificationListenerService : NotificationListenerService() {
 
     private lateinit var scope: CoroutineScope
 
-    /** Bounded set of recently-handled notification keys, to drop re-posts/updates. */
+    /** Bounded set of recently-handled notification keys, to drop rapid re-posts cheaply. */
     private val recentKeys =
         object : LinkedHashMap<String, Boolean>(RECENT_CAPACITY, LOAD_FACTOR, false) {
             override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Boolean>) = size > RECENT_CAPACITY
@@ -67,11 +69,25 @@ class TallyNotificationListenerService : NotificationListenerService() {
         scope = CoroutineScope(SupervisorJob() + ioDispatcher)
     }
 
-    override fun onNotificationPosted(sbn: StatusBarNotification) {
+    override fun onListenerConnected() {
+        super.onListenerConnected()
+        val active =
+            try {
+                activeNotifications
+            } catch (e: SecurityException) {
+                Log.w(TAG, "getActiveNotifications failed", e)
+                null
+            } ?: return
+        Log.i(TAG, "connected; scanning ${active.size} active notifications")
+        active.forEach { handle(it) }
+    }
+
+    override fun onNotificationPosted(sbn: StatusBarNotification) = handle(sbn)
+
+    private fun handle(sbn: StatusBarNotification) {
         if (sbn.packageName !in PAYMENT_PACKAGES) return
         val notification = sbn.notification ?: return
-        // Skip the group-summary parent (e.g. Google Wallet's "2 notifications"
-        // header) — the per-transaction children carry the real amount/merchant.
+        // Skip the group-summary parent — its children carry the real amount/merchant.
         if (notification.flags and Notification.FLAG_GROUP_SUMMARY != 0) return
         val extras = notification.extras ?: return
         val raw =
@@ -82,12 +98,22 @@ class TallyNotificationListenerService : NotificationListenerService() {
                 bigText = extras.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString(),
                 postedAtMillis = sbn.postTime,
             )
-        // Dedup on the main thread (where this runs) before any async work.
         if (recentKeys.put(sbn.key + "|" + raw.text, true) != null) return
 
         scope.launch {
-            if (!ingestPreferences.enabled.first()) return@launch
-            val parsed = parsePayment(raw) ?: return@launch
+            if (!ingestPreferences.enabled.first()) {
+                Log.i(TAG, "capture off; ignoring ${sbn.packageName}")
+                return@launch
+            }
+            val parsed = parsePayment(raw)
+            if (parsed == null) {
+                Log.i(TAG, "not a payment from ${sbn.packageName}: title='${raw.title}'")
+                return@launch
+            }
+            if (transactionRepository.notificationTransactionExists(parsed.amount, parsed.merchant, parsed.occurredAt)) {
+                Log.i(TAG, "duplicate; skipping ${parsed.merchant} ${MoneyFormat.format(parsed.amount)}")
+                return@launch
+            }
             val categories = categoryRepository.observeAll().first()
             val learned = merchantRuleStore.rules.first()
             val categoryId = suggestCategory(parsed.merchant, categories, learned)
@@ -101,6 +127,7 @@ class TallyNotificationListenerService : NotificationListenerService() {
                         source = TransactionSource.NOTIFICATION,
                     ),
                 )
+            Log.i(TAG, "logged ${parsed.merchant} ${MoneyFormat.format(parsed.amount)} id=$newId")
             val chosen = categories.find { it.id == categoryId }
             val candidates =
                 if (chosen == null) {
@@ -125,6 +152,7 @@ class TallyNotificationListenerService : NotificationListenerService() {
     }
 
     companion object {
+        private const val TAG = "TallyCapture"
         private const val RECENT_CAPACITY = 200
         private const val LOAD_FACTOR = 0.75f
         private const val CANDIDATE_COUNT = 3

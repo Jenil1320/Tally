@@ -38,6 +38,17 @@ class FakeTransactionDao : TransactionDao {
         rows.value = rows.value.map { if (it.id == id) it.copy(categoryId = categoryId) else it }
     }
 
+    override suspend fun countMatching(
+        source: String,
+        amount: Long,
+        merchant: String,
+        occurredAt: Long,
+    ): Int =
+        rows.value.count {
+            it.deletedAt == null && it.source == source && it.amount == amount &&
+                it.merchant == merchant && it.occurredAt == occurredAt
+        }
+
     override suspend fun topCategoryIds(limit: Int): List<String> =
         rows.value
             .filter { it.deletedAt == null }
