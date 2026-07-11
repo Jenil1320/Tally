@@ -64,7 +64,14 @@ private fun InsightsContent(
     }
     LazyColumn(
         modifier = modifier.fillMaxSize().background(colors.bg0),
-        contentPadding = PaddingValues(TallyTheme.spacing.lg),
+        // Extra bottom room so the last chart clears the centre Add FAB.
+        contentPadding =
+            PaddingValues(
+                start = TallyTheme.spacing.lg,
+                end = TallyTheme.spacing.lg,
+                top = TallyTheme.spacing.lg,
+                bottom = 96.dp,
+            ),
         verticalArrangement = Arrangement.spacedBy(TallyTheme.spacing.md),
     ) {
         item {
@@ -102,6 +109,7 @@ private fun InsightsContent(
                     highlightIndex = state.todayIndex,
                     modifier = Modifier.fillMaxWidth().height(96.dp),
                 )
+                DayAxis(dayCount = state.dailyTotals.size)
             }
         }
         item {
@@ -204,6 +212,21 @@ private fun LegendRow(slice: CategorySpend) {
             color = colors.textLo,
         )
         TNum(amount = slice.total, size = TNumSize.Small)
+    }
+}
+
+/** Sparse day-of-month labels under the daily trend (1 … end), evenly spaced. */
+@Composable
+private fun DayAxis(dayCount: Int) {
+    if (dayCount <= 1) return
+    val marks = (0..4).map { 1 + it * (dayCount - 1) / 4 }.distinct()
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(top = TallyTheme.spacing.xs),
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        marks.forEach { day ->
+            TText(text = day.toString(), style = TallyTheme.typography.caption, color = TallyTheme.colors.textLo)
+        }
     }
 }
 
