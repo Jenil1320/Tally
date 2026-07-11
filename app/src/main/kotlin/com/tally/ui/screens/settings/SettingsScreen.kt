@@ -147,7 +147,7 @@ private fun SettingsContent(
             val caption =
                 when {
                     !state.captureEnabled -> "Log spending automatically from Google Pay notifications."
-                    needsGrant -> "Grant Tally ‘Notification access’ to start capturing. Tap to open settings."
+                    needsGrant -> "Grant Spendwise ‘Notification access’ to start capturing. Tap to open settings."
                     else -> "On. New payments log automatically; edit or remove them like any entry."
                 }
             SettingRow(
