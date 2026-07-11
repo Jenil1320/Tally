@@ -45,5 +45,6 @@ app/src/main/assets/fonts/*.otf
 # Local build/triage logs
 *.log
 
-# Test reports
-**/reports/
+# Test / lint report output. Scoped to build/ so it never catches source
+# packages named "reports" (e.g. ui/screens/reports/).
+**/build/reports/
