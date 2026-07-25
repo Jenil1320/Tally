@@ -17,6 +17,9 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.runtime.Composable
@@ -28,6 +31,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.unit.dp
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -37,7 +42,9 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.tally.data.notify.TallyNotificationListenerService
 import com.tally.ui.components.TCard
+import com.tally.ui.components.TCatDot
 import com.tally.ui.components.TText
+import com.tally.ui.components.TTextField
 import com.tally.ui.theme.TallyTheme
 
 @Composable
@@ -113,6 +120,7 @@ fun SettingsScreen(
         onReminderToggle = ::onReminderToggle,
         onCaptureToggle = ::onCaptureToggle,
         onOpenAccessSettings = { openNotificationAccessSettings(context) },
+        onLimitChange = viewModel::setCategoryLimit,
         modifier = modifier,
     )
 }
@@ -124,11 +132,22 @@ private fun SettingsContent(
     onReminderToggle: (Boolean) -> Unit,
     onCaptureToggle: (Boolean) -> Unit,
     onOpenAccessSettings: () -> Unit,
+    onLimitChange: (String, String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = TallyTheme.colors
     Column(
-        modifier = modifier.fillMaxSize().background(colors.bg0).padding(TallyTheme.spacing.lg),
+        modifier =
+            modifier
+                .fillMaxSize()
+                .background(colors.bg0)
+                .verticalScroll(rememberScrollState())
+                .padding(
+                    start = TallyTheme.spacing.lg,
+                    end = TallyTheme.spacing.lg,
+                    top = TallyTheme.spacing.lg,
+                    bottom = 96.dp,
+                ),
         verticalArrangement = Arrangement.spacedBy(TallyTheme.spacing.md),
     ) {
         TText(text = "Settings", style = TallyTheme.typography.headline)
@@ -159,10 +178,56 @@ private fun SettingsContent(
             )
         }
 
+        if (state.limitRows.isNotEmpty()) {
+            TCard {
+                TText(text = "Monthly limits")
+                TText(
+                    text = "A limit you set for a category. Insights then shows what is left, per day.",
+                    style = TallyTheme.typography.caption,
+                    color = colors.textLo,
+                    modifier = Modifier.padding(top = 2.dp, bottom = TallyTheme.spacing.sm),
+                )
+                state.limitRows.forEach { row ->
+                    LimitEditorRow(row = row, onLimitChange = onLimitChange)
+                }
+            }
+        }
+
         TText(
             text = "Export and biometric lock arrive in later milestones.",
             style = TallyTheme.typography.caption,
             color = colors.textDim,
+        )
+    }
+}
+
+/**
+ * One category's limit field. Holds the typed text locally so a partially typed
+ * amount is never written, and commits on every valid edit (blank clears).
+ */
+@Composable
+private fun LimitEditorRow(
+    row: CategoryLimitRow,
+    onLimitChange: (String, String) -> Unit,
+) {
+    val colors = TallyTheme.colors
+    var text by remember(row.categoryId, row.limitText) { mutableStateOf(row.limitText) }
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = TallyTheme.spacing.xs),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(TallyTheme.spacing.sm),
+    ) {
+        TCatDot(color = colors.category(row.colorIndex))
+        TText(text = row.name, modifier = Modifier.weight(1f), maxLines = 1)
+        TTextField(
+            value = text,
+            onValueChange = {
+                text = it
+                onLimitChange(row.categoryId, it)
+            },
+            placeholder = "None",
+            keyboardType = KeyboardType.Decimal,
+            modifier = Modifier.width(104.dp),
         )
     }
 }

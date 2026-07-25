@@ -19,6 +19,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -29,6 +32,9 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.tally.core.money.Pence
 import com.tally.domain.insight.CategorySpend
+import com.tally.domain.insight.LimitState
+import com.tally.domain.insight.LimitStatus
+import com.tally.domain.insight.MerchantTotal
 import com.tally.ui.components.TCard
 import com.tally.ui.components.TCatDot
 import com.tally.ui.components.TNum
@@ -37,6 +43,7 @@ import com.tally.ui.components.TText
 import com.tally.ui.components.chart.DonutSlice
 import com.tally.ui.components.chart.TBarChart
 import com.tally.ui.components.chart.TDonutChart
+import com.tally.ui.components.chart.TLimitBar
 import com.tally.ui.theme.TallyTheme
 import kotlin.math.roundToInt
 
@@ -85,6 +92,17 @@ private fun InsightsContent(
             }
         }
         item { FilterChips(chips = state.chips, onToggle = onToggleCategory) }
+        if (state.limits.isNotEmpty()) {
+            item {
+                TText(
+                    text = "Monthly limits",
+                    style = TallyTheme.typography.label,
+                    color = colors.textMid,
+                    modifier = Modifier.padding(top = TallyTheme.spacing.sm),
+                )
+            }
+            items(items = state.limits, key = { "limit-${it.categoryId}" }) { limit -> LimitRow(limit) }
+        }
         item {
             Box(modifier = Modifier.fillMaxWidth().padding(vertical = TallyTheme.spacing.sm), contentAlignment = Alignment.Center) {
                 TDonutChart(
@@ -99,41 +117,89 @@ private fun InsightsContent(
             }
         }
         item { ForecastCard(forecast = state.forecast) }
+        if (state.topMerchants.isNotEmpty()) {
+            item { MerchantCard(merchants = state.topMerchants) }
+        }
         items(items = state.breakdown, key = { it.categoryId ?: "uncategorised" }) { slice ->
             LegendRow(slice)
         }
+        item { DailyTrendCard(state) }
+        item { WeekdayRhythmCard(state) }
         item {
-            ChartCard(title = "This month, day by day") {
-                TBarChart(
-                    values = state.dailyTotals.map { it.value.toFloat() },
-                    highlightIndex = state.todayIndex,
-                    modifier = Modifier.fillMaxWidth().height(96.dp),
-                )
-                DayAxis(dayCount = state.dailyTotals.size)
-            }
+            TText(
+                text = "Press and hold a chart to read a single bar.",
+                style = TallyTheme.typography.caption,
+                color = colors.textDim,
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = TextAlign.Center,
+            )
         }
-        item {
-            ChartCard(title = "By weekday") {
-                TBarChart(
-                    values = state.weekdayTotals.map { it.value.toFloat() },
-                    highlightIndex = state.peakWeekdayIndex,
-                    modifier = Modifier.fillMaxWidth().height(96.dp),
+    }
+}
+
+/** Spend per day of the month; press and hold to read one day. */
+@Composable
+private fun DailyTrendCard(state: InsightsUiState) {
+    var scrubbed by remember { mutableStateOf<Int?>(null) }
+    val monthName = state.monthLabel.substringBefore(' ')
+    ChartCard(
+        title = "This month, day by day",
+        selection =
+            scrubbed?.let { index ->
+                state.dailyTotals.getOrNull(index)?.let { ChartSelection("${index + 1} $monthName", it) }
+            },
+    ) {
+        TBarChart(
+            values = state.dailyTotals.map { it.value.toFloat() },
+            highlightIndex = state.todayIndex,
+            selectedIndex = scrubbed,
+            onSelectedIndexChange = { scrubbed = it },
+            modifier = Modifier.fillMaxWidth().height(96.dp),
+        )
+        DayAxis(dayCount = state.dailyTotals.size)
+    }
+}
+
+/** Spend per weekday; press and hold to read one day. */
+@Composable
+private fun WeekdayRhythmCard(state: InsightsUiState) {
+    var scrubbed by remember { mutableStateOf<Int?>(null) }
+    ChartCard(
+        title = "By weekday",
+        selection =
+            scrubbed?.let { index ->
+                state.weekdayTotals.getOrNull(index)?.let { ChartSelection(WEEKDAY_NAMES[index], it) }
+            },
+    ) {
+        TBarChart(
+            values = state.weekdayTotals.map { it.value.toFloat() },
+            highlightIndex = state.peakWeekdayIndex,
+            selectedIndex = scrubbed,
+            onSelectedIndexChange = { scrubbed = it },
+            modifier = Modifier.fillMaxWidth().height(96.dp),
+        )
+        Row(modifier = Modifier.fillMaxWidth().padding(top = TallyTheme.spacing.xs)) {
+            listOf("M", "T", "W", "T", "F", "S", "S").forEach { label ->
+                TText(
+                    text = label,
+                    style = TallyTheme.typography.caption,
+                    color = TallyTheme.colors.textLo,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.weight(1f),
                 )
-                Row(modifier = Modifier.fillMaxWidth().padding(top = TallyTheme.spacing.xs)) {
-                    listOf("M", "T", "W", "T", "F", "S", "S").forEach { label ->
-                        TText(
-                            text = label,
-                            style = TallyTheme.typography.caption,
-                            color = colors.textLo,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.weight(1f),
-                        )
-                    }
-                }
             }
         }
     }
 }
+
+private val WEEKDAY_NAMES =
+    listOf("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
+
+/** A bar the user is pressing: its label and value, shown in the chart card header. */
+private data class ChartSelection(
+    val label: String,
+    val amount: Pence,
+)
 
 @Composable
 private fun FilterChips(
@@ -185,13 +251,111 @@ private fun ForecastCard(forecast: Pence) {
     }
 }
 
+/**
+ * One capped category: spend against its limit, with a pace tick, and what is
+ * left restated per day — the form that is usable at the till. Voice stays
+ * observational: it reports the position and never grades it.
+ */
+@Composable
+private fun LimitRow(limit: LimitState) {
+    val colors = TallyTheme.colors
+    val past = limit.status == LimitStatus.PAST
+    TCard(modifier = Modifier.fillMaxWidth()) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(TallyTheme.spacing.sm)) {
+            TCatDot(color = sliceColor(limit.colorIndex))
+            TText(text = limit.name, modifier = Modifier.weight(1f))
+            TNum(amount = limit.spent, size = TNumSize.Small)
+            TText(text = "of", style = TallyTheme.typography.caption, color = colors.textLo)
+            TNum(amount = limit.limit, size = TNumSize.Small, color = colors.textLo)
+        }
+        TLimitBar(
+            fillFraction = limit.fillFraction,
+            paceFraction = limit.paceFraction,
+            fillColor = sliceColor(limit.colorIndex),
+            modifier = Modifier.fillMaxWidth().height(8.dp).padding(top = TallyTheme.spacing.sm),
+        )
+        Row(
+            modifier = Modifier.padding(top = TallyTheme.spacing.sm),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(TallyTheme.spacing.xs),
+        ) {
+            if (past) {
+                TNum(amount = Pence(-limit.remaining.value), size = TNumSize.Small, color = colors.warning)
+                TText(text = "past the limit", style = TallyTheme.typography.caption, color = colors.textLo)
+            } else {
+                TNum(amount = limit.dailyAllowance, size = TNumSize.Small, color = colors.accent)
+                TText(text = "a day for the rest of the month", style = TallyTheme.typography.caption, color = colors.textLo)
+            }
+        }
+        if (!past && limit.projectedPast) {
+            Row(
+                modifier = Modifier.padding(top = TallyTheme.spacing.xs),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(TallyTheme.spacing.xs),
+            ) {
+                TText(text = "at this pace,", style = TallyTheme.typography.caption, color = colors.textLo)
+                TNum(amount = limit.projected, size = TNumSize.Small, color = colors.textMid)
+                TText(text = "by month end", style = TallyTheme.typography.caption, color = colors.textLo)
+            }
+        }
+    }
+}
+
+/**
+ * Spend grouped by merchant. The category donut hides "small and often" — many
+ * modest purchases at one place — which this card makes visible by pairing each
+ * total with its visit count.
+ */
+@Composable
+private fun MerchantCard(merchants: List<MerchantTotal>) {
+    val colors = TallyTheme.colors
+    TCard(modifier = Modifier.fillMaxWidth()) {
+        TText(text = "Where it goes, by merchant", style = TallyTheme.typography.label, color = colors.textMid)
+        merchants.forEach { merchant ->
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(top = TallyTheme.spacing.sm),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(TallyTheme.spacing.sm),
+            ) {
+                TText(text = merchant.merchant, modifier = Modifier.weight(1f), maxLines = 1)
+                TText(
+                    text = if (merchant.visits == 1) "once" else "${merchant.visits} times",
+                    style = TallyTheme.typography.caption,
+                    color = colors.textLo,
+                )
+                TNum(amount = merchant.total, size = TNumSize.Small)
+            }
+        }
+    }
+}
+
+/**
+ * A titled chart panel. While the user scrubs, [selection] replaces the title
+ * with that bar's label and amount, so the reading appears without shifting the
+ * layout underneath their finger.
+ */
 @Composable
 private fun ChartCard(
     title: String,
+    selection: ChartSelection? = null,
     content: @Composable () -> Unit,
 ) {
+    val colors = TallyTheme.colors
     TCard(modifier = Modifier.fillMaxWidth()) {
-        TText(text = title, style = TallyTheme.typography.label, color = TallyTheme.colors.textMid)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            TText(
+                text = selection?.label ?: title,
+                style = TallyTheme.typography.label,
+                color = if (selection != null) colors.textHi else colors.textMid,
+            )
+            if (selection != null) {
+                TNum(amount = selection.amount, size = TNumSize.Small, color = colors.accent)
+            }
+        }
         Column(modifier = Modifier.padding(top = TallyTheme.spacing.sm)) { content() }
     }
 }

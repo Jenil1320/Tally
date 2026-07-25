@@ -6,6 +6,7 @@ import com.tally.core.money.Pence
 import com.tally.core.time.FakeClock
 import com.tally.domain.model.Category
 import com.tally.domain.model.NewTransaction
+import com.tally.fakes.FakeCategoryLimitStore
 import com.tally.fakes.FakeCategoryRepository
 import com.tally.fakes.FakeTransactionRepository
 import com.tally.util.MainDispatcherExtension
@@ -38,7 +39,7 @@ class InsightsViewModelTest {
             val lastMonth = Instant.fromEpochMilliseconds(now.toEpochMilliseconds() - 40L * 24 * 3600 * 1000)
             transactions.add(NewTransaction(Pence(9999), "Old", occurredAt = lastMonth, categoryId = "c1"))
 
-            InsightsViewModel(transactions, categories, clock, UnconfinedTestDispatcher()).uiState.test {
+            InsightsViewModel(transactions, categories, FakeCategoryLimitStore(), clock, UnconfinedTestDispatcher()).uiState.test {
                 var state = awaitItem()
                 while (!state.loaded) state = awaitItem()
                 assertThat(state.total).isEqualTo(Pence(1500))
@@ -52,7 +53,7 @@ class InsightsViewModelTest {
         runTest {
             transactions.add(NewTransaction(Pence(900), "Train", occurredAt = now, categoryId = "c2"))
             transactions.add(NewTransaction(Pence(600), "Lunch", occurredAt = now, categoryId = "c1"))
-            val viewModel = InsightsViewModel(transactions, categories, clock, UnconfinedTestDispatcher())
+            val viewModel = InsightsViewModel(transactions, categories, FakeCategoryLimitStore(), clock, UnconfinedTestDispatcher())
 
             viewModel.uiState.test {
                 var state = awaitItem()

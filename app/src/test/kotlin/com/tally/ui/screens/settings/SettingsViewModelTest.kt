@@ -3,6 +3,8 @@ package com.tally.ui.screens.settings
 import app.cash.turbine.test
 import com.google.common.truth.Truth.assertThat
 import com.tally.domain.reminder.ReminderState
+import com.tally.fakes.FakeCategoryLimitStore
+import com.tally.fakes.FakeCategoryRepository
 import com.tally.fakes.FakeNotificationIngestPreferences
 import com.tally.fakes.FakeReminderPreferences
 import com.tally.fakes.FakeReminderScheduler
@@ -21,13 +23,14 @@ class SettingsViewModelTest {
         reminder: ReminderState = ReminderState(enabled = false, hour = 22, minute = 0),
         scheduler: FakeReminderScheduler = FakeReminderScheduler(),
         capture: FakeNotificationIngestPreferences = FakeNotificationIngestPreferences(),
-    ) = SettingsViewModel(FakeReminderPreferences(reminder), scheduler, capture)
+    ) = SettingsViewModel(FakeReminderPreferences(reminder), scheduler, capture, FakeCategoryLimitStore(), FakeCategoryRepository())
 
     @Test fun `enabling schedules and persists, disabling cancels`() =
         runTest {
             val prefs = FakeReminderPreferences(ReminderState(enabled = false, hour = 22, minute = 0))
             val scheduler = FakeReminderScheduler()
-            val viewModel = SettingsViewModel(prefs, scheduler, FakeNotificationIngestPreferences())
+            val viewModel =
+                SettingsViewModel(prefs, scheduler, FakeNotificationIngestPreferences(), FakeCategoryLimitStore(), FakeCategoryRepository())
 
             viewModel.setReminderEnabled(true)
             assertThat(scheduler.scheduledAt).isEqualTo(22 to 0)
@@ -45,6 +48,8 @@ class SettingsViewModelTest {
                     FakeReminderPreferences(ReminderState(enabled = true, hour = 22, minute = 0)),
                     FakeReminderScheduler(),
                     FakeNotificationIngestPreferences(),
+                    FakeCategoryLimitStore(),
+                    FakeCategoryRepository(),
                 )
             viewModel.uiState.test {
                 var state = awaitItem()

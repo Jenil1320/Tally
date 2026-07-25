@@ -5,11 +5,16 @@ import androidx.lifecycle.viewModelScope
 import com.tally.core.money.Pence
 import com.tally.core.time.Clock
 import com.tally.di.DefaultDispatcher
+import com.tally.domain.insight.CategoryLimitStore
 import com.tally.domain.insight.CategorySpend
+import com.tally.domain.insight.LimitState
+import com.tally.domain.insight.MerchantTotal
 import com.tally.domain.insight.categoryBreakdown
 import com.tally.domain.insight.dailyTotals
 import com.tally.domain.insight.forecastMonthEnd
 import com.tally.domain.insight.lengthOfMonth
+import com.tally.domain.insight.limitStates
+import com.tally.domain.insight.merchantTotals
 import com.tally.domain.insight.weekdayTotals
 import com.tally.domain.repo.CategoryRepository
 import com.tally.domain.repo.TransactionRepository
@@ -52,6 +57,10 @@ data class InsightsUiState(
     val peakWeekdayIndex: Int = -1,
     // Filter chips for the categories present this month.
     val chips: List<CategoryChip> = emptyList(),
+    // Categories the user set a monthly limit on, fullest first.
+    val limits: List<LimitState> = emptyList(),
+    // Where the money goes by merchant — the small-and-often view.
+    val topMerchants: List<MerchantTotal> = emptyList(),
     val monthHasTransactions: Boolean = false,
     val loaded: Boolean = false,
 )
@@ -67,6 +76,7 @@ class InsightsViewModel
     constructor(
         transactionRepository: TransactionRepository,
         categoryRepository: CategoryRepository,
+        categoryLimitStore: CategoryLimitStore,
         clock: Clock,
         @DefaultDispatcher defaultDispatcher: CoroutineDispatcher,
     ) : ViewModel() {
@@ -92,7 +102,8 @@ class InsightsViewModel
                     transactionRepository.observeBetween(monthStart, monthEnd),
                     categoryRepository.observeAll(),
                     excludedCategoryIds,
-                ) { transactions, categories, excluded ->
+                    categoryLimitStore.limits,
+                ) { transactions, categories, excluded, limits ->
                     // Chips reflect every category present this month, ordered by
                     // total spend (unfiltered) so toggling one off doesn't reorder them.
                     val chips =
@@ -115,6 +126,17 @@ class InsightsViewModel
                         weekdayTotals = weekday,
                         peakWeekdayIndex = weekday.indices.maxByOrNull { weekday[it].value } ?: -1,
                         chips = chips,
+                        // Limits measure the month as it really is, so they ignore
+                        // the category filter (which is only a view of the charts).
+                        limits =
+                            limitStates(
+                                transactions = transactions,
+                                categories = categories,
+                                limits = limits,
+                                dayOfMonth = date.dayOfMonth,
+                                daysInMonth = firstOfMonth.lengthOfMonth(),
+                            ),
+                        topMerchants = merchantTotals(filtered),
                         monthHasTransactions = transactions.isNotEmpty(),
                         loaded = true,
                     )
