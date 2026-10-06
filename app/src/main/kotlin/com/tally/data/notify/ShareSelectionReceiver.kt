@@ -73,7 +73,7 @@ class ShareSelectionReceiver : BroadcastReceiver() {
                             repository.updateShare(transactionId, reply.share.takeIf { it < transaction.amount })
                             CaptureShare.Saved(MoneyFormat.format(reply.share))
                         }
-                        ShareReply.Unreadable -> CaptureShare.Retry("Could not read that. Try 12.50")
+                        ShareReply.Unreadable -> CaptureShare.Retry("Could not read that. Try 12.50 or 25%")
                         ShareReply.TooHigh -> CaptureShare.Retry("That is more than was paid")
                     }
                 CaptureNotifier.show(

@@ -25,7 +25,7 @@ own part of the bill. Null means "the whole amount is mine".
   question when that category is chosen: All mine, Half, A third, or Custom.
 - The payment is still logged first. The capture notification for an Eating out
   payment then offers three actions: "Half", "My share" (the owner types an
-  amount in the notification itself) and "Change" (opens the editor). The
+  amount or a percent in the notification itself) and "Change" (opens the editor). The
   notification updates to show the saved share. An amount that cannot be read, or
   that is above the amount paid, saves nothing and shows a short hint.
 - Totals for the month, the category chart and the monthly report stay on
@@ -58,4 +58,4 @@ rows in schema 1, migrates, and checks that every row is unchanged.
   Rejected, because it risks old totals.
 - **Ask for a share on every category.** Rejected. Only eating out is shared in
   practice, and the extra question slows every other entry.
-- **Store a share percentage.** Rejected. Pence is exact and matches ADR-0002.
+- **Store a share percentage.** Rejected as storage. Pence is exact and matches ADR-0002. A percent typed in the notification is turned into pence when it is saved.

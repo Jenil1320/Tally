@@ -174,7 +174,7 @@ object CaptureNotifier {
                 ShareSelectionReceiver.typedIntent(context, transactionId, merchant, categoryName, amountText),
                 PendingIntent.FLAG_UPDATE_CURRENT or mutable,
             )
-        val reply = RemoteInput.Builder(KEY_SHARE_REPLY).setLabel("Your share, e.g. 12.50").build()
+        val reply = RemoteInput.Builder(KEY_SHARE_REPLY).setLabel("Your share, e.g. 12.50 or 25%").build()
         builder.addAction(NotificationCompat.Action.Builder(0, "My share", typed).addRemoteInput(reply).build())
 
         builder.addAction(0, "Change", openEditor)
