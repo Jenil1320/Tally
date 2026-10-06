@@ -14,6 +14,7 @@ import androidx.core.content.ContextCompat
 import com.tally.MainActivity
 import com.tally.R
 import com.tally.data.notify.CategorySelectionReceiver
+import com.tally.domain.insight.EATING_OUT_CATEGORY_NAME
 import com.tally.domain.model.Category
 
 /**
@@ -26,6 +27,9 @@ import com.tally.domain.model.Category
  *    three one-tap category buttons ([candidates]); tapping one is handled by
  *    [CategorySelectionReceiver] without opening the app. Tapping the body opens
  *    the full editor.
+ *
+ * An **Eating out** entry also invites the user to add their share: the line ends
+ * `· Add your share` and the action opens the entry for editing (ADR-0010).
  *
  * Tone is observational per the constitution — no emoji, no exclamation marks.
  * The notification id is derived from the transaction id, so re-posting after a
@@ -58,6 +62,7 @@ object CaptureNotifier {
         amountText: String,
         categoryName: String?,
         candidates: List<Category>,
+        askShare: Boolean = categoryName.equals(EATING_OUT_CATEGORY_NAME, ignoreCase = true),
     ) {
         ensureChannel(context)
         if (!hasPermission(context)) return
@@ -73,7 +78,12 @@ object CaptureNotifier {
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
             )
 
-        val body = if (categoryName != null) "$merchant · $categoryName" else "$merchant · Pick a category"
+        val body =
+            when {
+                categoryName == null -> "$merchant · Pick a category"
+                askShare -> "$merchant · $categoryName · Add your share"
+                else -> "$merchant · $categoryName"
+            }
         val builder =
             NotificationCompat.Builder(context, CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_stat_tally)
@@ -102,7 +112,7 @@ object CaptureNotifier {
                 builder.addAction(0, category.name, select)
             }
         } else {
-            builder.addAction(0, "Change", openEditor)
+            builder.addAction(0, if (askShare) "Add share" else "Change", openEditor)
         }
 
         NotificationManagerCompat.from(context).notify(notificationId, builder.build())

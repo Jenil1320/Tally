@@ -7,6 +7,7 @@ import com.tally.core.time.Clock
 import com.tally.domain.category.MerchantRuleStore
 import com.tally.domain.category.normaliseMerchant
 import com.tally.domain.category.suggestCategory
+import com.tally.domain.insight.isEatingOut
 import com.tally.domain.model.Category
 import com.tally.domain.model.NewTransaction
 import com.tally.domain.model.TransactionSource
@@ -27,6 +28,17 @@ import javax.inject.Inject
 
 private const val MAX_PENCE = 9_999_999_99L // £9,999,999.99 cap
 
+/** How much of an eating-out bill was the user's own. */
+enum class ShareChoice(val label: String) {
+    All("All mine"),
+    Half("Half"),
+    Third("A third"),
+    Custom("Custom"),
+}
+
+/** Which figure the keypad is typing into. */
+enum class AmountField { Total, Share }
+
 /**
  * State for the Add/Edit sheet.
  *
@@ -34,6 +46,12 @@ private const val MAX_PENCE = 9_999_999_99L // £9,999,999.99 cap
  * transaction date (defaults to now for a new entry, or the original on edit),
  * shown as [occurredAtLabel]. [canSave] gates Save; [editingId] non-null means
  * edit mode (revealing Delete/Duplicate).
+ *
+ * For an Eating out entry the sheet also asks for the user's share
+ * ([asksForShare]). [myShare] is the resolved figure that is saved. It is null
+ * for every other category, and when the whole bill was the user's own.
+ * [source] is kept from the loaded transaction, so editing an auto-captured
+ * payment does not turn it into a manual one.
  */
 data class AddUiState(
     val amountPence: Long = 0L,
@@ -46,10 +64,33 @@ data class AddUiState(
     val occurredAtLabel: String = "Today",
     val editingId: String? = null,
     val saving: Boolean = false,
+    val source: TransactionSource = TransactionSource.MANUAL,
+    val shareChoice: ShareChoice = ShareChoice.All,
+    val customSharePence: Long? = null,
+    val activeField: AmountField = AmountField.Total,
 ) {
     val amount: Pence get() = Pence(amountPence)
     val isEditing: Boolean get() = editingId != null
-    val canSave: Boolean get() = amountPence > 0 && merchant.isNotBlank() && !saving
+
+    /** True when the chosen category is Eating out, so the share question shows. */
+    val asksForShare: Boolean get() = categories.firstOrNull { it.id == selectedCategoryId }?.isEatingOut == true
+
+    /** The user's share to save, or null when the whole amount is theirs (or it was not asked). */
+    val myShare: Pence?
+        get() {
+            if (!asksForShare || amountPence <= 0) return null
+            return when (shareChoice) {
+                ShareChoice.All -> null
+                ShareChoice.Half -> amount.splitEvenly(2).first()
+                ShareChoice.Third -> amount.splitEvenly(3).first()
+                ShareChoice.Custom -> customSharePence?.let { Pence(it.coerceAtMost(amountPence)) }
+            }
+        }
+
+    private val customShareMissing: Boolean
+        get() = asksForShare && shareChoice == ShareChoice.Custom && customSharePence == null
+
+    val canSave: Boolean get() = amountPence > 0 && merchant.isNotBlank() && !saving && !customShareMissing
 }
 
 /**
@@ -98,6 +139,7 @@ class AddViewModel
             viewModelScope.launch {
                 val transaction = transactionRepository.findById(editingId) ?: return@launch
                 val millis = transaction.occurredAt.toEpochMilliseconds()
+                val (choice, custom) = shareStateFor(transaction.amount, transaction.myShare)
                 _uiState.update { state ->
                     state.copy(
                         amountPence = transaction.amount.value,
@@ -109,21 +151,51 @@ class AddViewModel
                         occurredAtLabel = labelFor(millis),
                         editingId = editingId,
                         saving = false,
+                        source = transaction.source,
+                        shareChoice = choice,
+                        customSharePence = custom,
+                        activeField = AmountField.Total,
                     )
                 }
             }
         }
 
-        fun onDigit(digit: Int) {
-            _uiState.update { it.copy(amountPence = (it.amountPence * 10 + digit).coerceAtMost(MAX_PENCE)) }
+        fun onDigit(digit: Int) = typeInto { (it * 10 + digit).coerceAtMost(MAX_PENCE) }
+
+        fun onDoubleZero() = typeInto { (it * 100).coerceAtMost(MAX_PENCE) }
+
+        fun onBackspace() = typeInto { it / 10 }
+
+        /** Applies [edit] to whichever figure the keypad is typing into: the total or the custom share. */
+        private fun typeInto(edit: (Long) -> Long) {
+            _uiState.update { state ->
+                if (state.asksForShare && state.activeField == AmountField.Share) {
+                    state.copy(customSharePence = edit(state.customSharePence ?: 0L))
+                } else {
+                    state.copy(amountPence = edit(state.amountPence))
+                }
+            }
         }
 
-        fun onDoubleZero() {
-            _uiState.update { it.copy(amountPence = (it.amountPence * 100).coerceAtMost(MAX_PENCE)) }
+        /** Picks how the bill was split. Custom hands the keypad to the share figure. */
+        fun onShareChoice(choice: ShareChoice) {
+            _uiState.update {
+                it.copy(
+                    shareChoice = choice,
+                    activeField = if (choice == ShareChoice.Custom) AmountField.Share else AmountField.Total,
+                )
+            }
         }
 
-        fun onBackspace() {
-            _uiState.update { it.copy(amountPence = it.amountPence / 10) }
+        /** Points the keypad at the total or at the share. Choosing the share implies Custom. */
+        fun onFieldSelected(field: AmountField) {
+            _uiState.update {
+                if (field == AmountField.Share && it.asksForShare) {
+                    it.copy(shareChoice = ShareChoice.Custom, activeField = AmountField.Share)
+                } else {
+                    it.copy(activeField = AmountField.Total)
+                }
+            }
         }
 
         fun onMerchantChange(value: String) {
@@ -173,7 +245,8 @@ class AddViewModel
                         occurredAt = Instant.fromEpochMilliseconds(state.occurredAtMillis),
                         note = state.note.trim().ifBlank { null },
                         categoryId = categoryId,
-                        source = TransactionSource.MANUAL,
+                        source = state.source,
+                        myShare = state.myShare,
                     )
                 val editingId = state.editingId
                 if (editingId != null) {
@@ -212,12 +285,25 @@ class AddViewModel
                         note = state.note.trim().ifBlank { null },
                         categoryId = state.selectedCategoryId,
                         source = TransactionSource.MANUAL,
+                        myShare = state.myShare,
                     ),
                 )
                 resetForm()
                 onDone()
             }
         }
+
+        /** Maps a saved share back onto the sheet's choices, so editing shows what was set. */
+        private fun shareStateFor(
+            amount: Pence,
+            myShare: Pence?,
+        ): Pair<ShareChoice, Long?> =
+            when {
+                myShare == null || amount.value <= 0 || myShare >= amount -> ShareChoice.All to null
+                myShare == amount.splitEvenly(2).first() -> ShareChoice.Half to null
+                myShare == amount.splitEvenly(3).first() -> ShareChoice.Third to null
+                else -> ShareChoice.Custom to myShare.value
+            }
 
         private fun labelFor(millis: Long): String {
             val date = Instant.fromEpochMilliseconds(millis).toLocalDateTime(timeZone).date
