@@ -84,6 +84,21 @@ class MonthlyReportTest {
         assertThat(monthlyReport(sample, categories, Pence(0), july, tz).vsPrevious).isNull()
     }
 
+    @Test fun `eating out reports the share, and the report totals stay at the full amount`() {
+        val shared =
+            tx(6000, "Dishoom", 14, "e").copy(myShare = Pence(1500))
+        val r = monthlyReport(sample + shared, categories, null, july, tz)
+        assertThat(r.total.value).isEqualTo(14_500L)
+        assertThat(r.eatingOut!!.paid.value).isEqualTo(7_500L) // 1,500 + 6,000
+        assertThat(r.eatingOut!!.mine.value).isEqualTo(3_000L) // 1,500 + 1,500 share
+        assertThat(r.eatingOut!!.hasShared).isTrue()
+    }
+
+    @Test fun `no eating out spend means no eating out summary`() {
+        val r = monthlyReport(listOf(tx(500, "Tesco", 3, "g")), categories, null, july, tz)
+        assertThat(r.eatingOut).isNull()
+    }
+
     @Test fun `an empty month is empty`() {
         val r = monthlyReport(emptyList(), categories, null, july, tz)
         assertThat(r.isEmpty).isTrue()

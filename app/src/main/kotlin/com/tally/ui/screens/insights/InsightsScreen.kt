@@ -2,7 +2,6 @@ package com.tally.ui.screens.insights
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -13,10 +12,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -25,27 +24,31 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.tally.core.money.Pence
-import com.tally.domain.insight.CategorySpend
 import com.tally.domain.insight.LimitState
 import com.tally.domain.insight.LimitStatus
 import com.tally.domain.insight.MerchantTotal
+import com.tally.ui.components.CategoryBreakdownCard
+import com.tally.ui.components.EatingOutCard
 import com.tally.ui.components.TCard
+import com.tally.ui.components.TCatChip
 import com.tally.ui.components.TCatDot
+import com.tally.ui.components.TKicker
 import com.tally.ui.components.TNum
 import com.tally.ui.components.TNumSize
+import com.tally.ui.components.TScreenHeader
 import com.tally.ui.components.TText
-import com.tally.ui.components.chart.DonutSlice
+import com.tally.ui.components.categoryColor
 import com.tally.ui.components.chart.TBarChart
-import com.tally.ui.components.chart.TDonutChart
 import com.tally.ui.components.chart.TLimitBar
 import com.tally.ui.theme.TallyTheme
-import kotlin.math.roundToInt
 
 @Composable
 fun InsightsScreen(
@@ -53,11 +56,15 @@ fun InsightsScreen(
     viewModel: InsightsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    LifecycleResumeEffect(Unit) {
+        viewModel.onResume()
+        onPauseOrDispose {}
+    }
     InsightsContent(state = state, onToggleCategory = viewModel::toggleCategory, modifier = modifier)
 }
 
 @Composable
-private fun InsightsContent(
+internal fun InsightsContent(
     state: InsightsUiState,
     onToggleCategory: (String?) -> Unit,
     modifier: Modifier = Modifier,
@@ -65,63 +72,40 @@ private fun InsightsContent(
     val colors = TallyTheme.colors
     if (state.loaded && !state.monthHasTransactions) {
         Box(modifier = modifier.fillMaxSize().background(colors.bg0), contentAlignment = Alignment.Center) {
-            TText("No spending this month yet.", color = colors.textMid)
+            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                TKicker("Nothing to read yet")
+                TText("No spending this month yet.", color = colors.textMid)
+            }
         }
         return
     }
     LazyColumn(
         modifier = modifier.fillMaxSize().background(colors.bg0),
-        // Extra bottom room so the last chart clears the centre Add FAB.
         contentPadding =
             PaddingValues(
                 start = TallyTheme.spacing.lg,
                 end = TallyTheme.spacing.lg,
                 top = TallyTheme.spacing.lg,
-                bottom = 96.dp,
+                bottom = TallyTheme.spacing.xl,
             ),
         verticalArrangement = Arrangement.spacedBy(TallyTheme.spacing.md),
     ) {
         item {
-            Column(verticalArrangement = Arrangement.spacedBy(TallyTheme.spacing.xs)) {
-                TText("Insights", style = TallyTheme.typography.headline)
-                TText(
-                    text = "${state.monthLabel} · ${state.transactionCount} transactions",
-                    style = TallyTheme.typography.caption,
-                    color = colors.textLo,
-                )
-            }
+            TScreenHeader(
+                title = "Where it went",
+                kicker = "${state.monthLabel} · ${state.transactionCount} transactions",
+            )
         }
         item { FilterChips(chips = state.chips, onToggle = onToggleCategory) }
+        item { CategoryBreakdownCard(breakdown = state.breakdown, total = state.total) }
+        if (state.eatingOut?.hasShared == true) item { EatingOutCard(summary = state.eatingOut) }
+        item { ForecastCard(forecast = state.forecast) }
         if (state.limits.isNotEmpty()) {
-            item {
-                TText(
-                    text = "Monthly limits",
-                    style = TallyTheme.typography.label,
-                    color = colors.textMid,
-                    modifier = Modifier.padding(top = TallyTheme.spacing.sm),
-                )
-            }
+            item { SectionKicker("Monthly limits") }
             items(items = state.limits, key = { "limit-${it.categoryId}" }) { limit -> LimitRow(limit) }
         }
-        item {
-            Box(modifier = Modifier.fillMaxWidth().padding(vertical = TallyTheme.spacing.sm), contentAlignment = Alignment.Center) {
-                TDonutChart(
-                    slices = state.breakdown.map { DonutSlice(it.fraction, sliceColor(it.colorIndex)) },
-                    modifier = Modifier.size(220.dp),
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        TText("Spent", style = TallyTheme.typography.caption, color = colors.textLo)
-                        TNum(amount = state.total, size = TNumSize.Medium)
-                    }
-                }
-            }
-        }
-        item { ForecastCard(forecast = state.forecast) }
         if (state.topMerchants.isNotEmpty()) {
             item { MerchantCard(merchants = state.topMerchants) }
-        }
-        items(items = state.breakdown, key = { it.categoryId ?: "uncategorised" }) { slice ->
-            LegendRow(slice)
         }
         item { DailyTrendCard(state) }
         item { WeekdayRhythmCard(state) }
@@ -135,6 +119,11 @@ private fun InsightsContent(
             )
         }
     }
+}
+
+@Composable
+private fun SectionKicker(text: String) {
+    TKicker(text, modifier = Modifier.padding(top = TallyTheme.spacing.sm))
 }
 
 /** Spend per day of the month; press and hold to read one day. */
@@ -217,18 +206,18 @@ private fun FilterChips(
                 modifier =
                     Modifier
                         .clip(TallyTheme.shapes.pill)
-                        .background(if (chip.included) colors.accentWash else colors.bg2)
+                        .background(if (chip.included) colors.accentWash else colors.bg1)
                         .border(
                             width = 1.dp,
-                            color = if (chip.included) colors.accent else colors.line,
+                            color = if (chip.included) colors.accent else colors.lineSoft,
                             shape = TallyTheme.shapes.pill,
                         )
-                        .clickable { onToggle(chip.id) }
-                        .padding(horizontal = TallyTheme.spacing.md, vertical = TallyTheme.spacing.sm),
+                        .toggleable(value = chip.included, role = Role.Checkbox, onValueChange = { onToggle(chip.id) })
+                        .padding(horizontal = TallyTheme.spacing.md, vertical = TallyTheme.spacing.sm + 2.dp),
                 horizontalArrangement = Arrangement.spacedBy(TallyTheme.spacing.sm),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                TCatDot(color = sliceColor(chip.colorIndex))
+                TCatDot(color = categoryColor(chip.colorIndex))
                 TText(
                     text = chip.name,
                     style = TallyTheme.typography.label,
@@ -243,10 +232,19 @@ private fun FilterChips(
 private fun ForecastCard(forecast: Pence) {
     val colors = TallyTheme.colors
     TCard(modifier = Modifier.fillMaxWidth()) {
-        TText("On pace for", style = TallyTheme.typography.caption, color = colors.textLo)
-        Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(TallyTheme.spacing.sm)) {
-            TNum(amount = forecast, size = TNumSize.Medium)
-            TText("by month end", style = TallyTheme.typography.caption, color = colors.textLo, modifier = Modifier.padding(bottom = 2.dp))
+        TKicker("On pace for")
+        Row(
+            modifier = Modifier.padding(top = 6.dp),
+            verticalAlignment = Alignment.Bottom,
+            horizontalArrangement = Arrangement.spacedBy(TallyTheme.spacing.sm),
+        ) {
+            TNum(amount = forecast, size = TNumSize.Title)
+            TText(
+                text = "by month end",
+                style = TallyTheme.typography.caption,
+                color = colors.textLo,
+                modifier = Modifier.padding(bottom = 4.dp),
+            )
         }
     }
 }
@@ -261,9 +259,9 @@ private fun LimitRow(limit: LimitState) {
     val colors = TallyTheme.colors
     val past = limit.status == LimitStatus.PAST
     TCard(modifier = Modifier.fillMaxWidth()) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(TallyTheme.spacing.sm)) {
-            TCatDot(color = sliceColor(limit.colorIndex))
-            TText(text = limit.name, modifier = Modifier.weight(1f))
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(TallyTheme.spacing.md)) {
+            TCatChip(name = limit.name, color = categoryColor(limit.colorIndex), size = 32.dp)
+            TText(text = limit.name, style = TallyTheme.typography.bodyStrong, modifier = Modifier.weight(1f))
             TNum(amount = limit.spent, size = TNumSize.Small)
             TText(text = "of", style = TallyTheme.typography.caption, color = colors.textLo)
             TNum(amount = limit.limit, size = TNumSize.Small, color = colors.textLo)
@@ -271,11 +269,12 @@ private fun LimitRow(limit: LimitState) {
         TLimitBar(
             fillFraction = limit.fillFraction,
             paceFraction = limit.paceFraction,
-            fillColor = sliceColor(limit.colorIndex),
-            modifier = Modifier.fillMaxWidth().height(8.dp).padding(top = TallyTheme.spacing.sm),
+            fillColor = categoryColor(limit.colorIndex),
+            // Padding first: with the height set before it, the 8 dp of padding left the bar no room to draw.
+            modifier = Modifier.fillMaxWidth().padding(top = TallyTheme.spacing.md).height(8.dp),
         )
         Row(
-            modifier = Modifier.padding(top = TallyTheme.spacing.sm),
+            modifier = Modifier.padding(top = TallyTheme.spacing.md),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(TallyTheme.spacing.xs),
         ) {
@@ -310,19 +309,31 @@ private fun LimitRow(limit: LimitState) {
 private fun MerchantCard(merchants: List<MerchantTotal>) {
     val colors = TallyTheme.colors
     TCard(modifier = Modifier.fillMaxWidth()) {
-        TText(text = "Where it goes, by merchant", style = TallyTheme.typography.label, color = colors.textMid)
-        merchants.forEach { merchant ->
+        TKicker("Where it goes, by merchant")
+        merchants.forEachIndexed { index, merchant ->
             Row(
-                modifier = Modifier.fillMaxWidth().padding(top = TallyTheme.spacing.sm),
+                modifier = Modifier.fillMaxWidth().padding(top = if (index == 0) 12.dp else 14.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(TallyTheme.spacing.sm),
+                horizontalArrangement = Arrangement.spacedBy(TallyTheme.spacing.md),
             ) {
-                TText(text = merchant.merchant, modifier = Modifier.weight(1f), maxLines = 1)
                 TText(
-                    text = if (merchant.visits == 1) "once" else "${merchant.visits} times",
-                    style = TallyTheme.typography.caption,
-                    color = colors.textLo,
+                    text = (index + 1).toString().padStart(2, '0'),
+                    style = TallyTheme.typography.numericSmall,
+                    color = colors.textDim,
                 )
+                Column(modifier = Modifier.weight(1f)) {
+                    TText(
+                        text = merchant.merchant,
+                        style = TallyTheme.typography.bodyStrong,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    TText(
+                        text = if (merchant.visits == 1) "once" else "${merchant.visits} times",
+                        style = TallyTheme.typography.caption,
+                        color = colors.textLo,
+                    )
+                }
                 TNum(amount = merchant.total, size = TNumSize.Small)
             }
         }
@@ -343,39 +354,19 @@ private fun ChartCard(
     val colors = TallyTheme.colors
     TCard(modifier = Modifier.fillMaxWidth()) {
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().height(20.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            TText(
+            TKicker(
                 text = selection?.label ?: title,
-                style = TallyTheme.typography.label,
-                color = if (selection != null) colors.textHi else colors.textMid,
+                color = if (selection != null) colors.textHi else colors.textLo,
             )
             if (selection != null) {
                 TNum(amount = selection.amount, size = TNumSize.Small, color = colors.accent)
             }
         }
-        Column(modifier = Modifier.padding(top = TallyTheme.spacing.sm)) { content() }
-    }
-}
-
-@Composable
-private fun LegendRow(slice: CategorySpend) {
-    val colors = TallyTheme.colors
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = TallyTheme.spacing.xs),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(TallyTheme.spacing.md),
-    ) {
-        TCatDot(color = sliceColor(slice.colorIndex))
-        TText(text = slice.name, modifier = Modifier.weight(1f))
-        TText(
-            text = "${(slice.fraction * 100).roundToInt()}%",
-            style = TallyTheme.typography.caption,
-            color = colors.textLo,
-        )
-        TNum(amount = slice.total, size = TNumSize.Small)
+        Column(modifier = Modifier.padding(top = TallyTheme.spacing.md)) { content() }
     }
 }
 
@@ -393,6 +384,3 @@ private fun DayAxis(dayCount: Int) {
         }
     }
 }
-
-@Composable
-private fun sliceColor(colorIndex: Int?): Color = colorIndex?.let { TallyTheme.colors.category(it) } ?: TallyTheme.colors.textDim

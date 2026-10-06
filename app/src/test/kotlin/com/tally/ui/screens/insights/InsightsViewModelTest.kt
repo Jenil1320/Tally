@@ -49,6 +49,50 @@ class InsightsViewModelTest {
             }
         }
 
+    @Test fun `eating out reports the share while totals stay at the full amount paid`() =
+        runTest {
+            transactions.add(NewTransaction(Pence(6000), "Dishoom", occurredAt = now, categoryId = "c1", myShare = Pence(1500)))
+            transactions.add(NewTransaction(Pence(900), "Train", occurredAt = now, categoryId = "c2"))
+            val viewModel = InsightsViewModel(transactions, categories, FakeCategoryLimitStore(), clock, UnconfinedTestDispatcher())
+
+            viewModel.uiState.test {
+                var state = awaitItem()
+                while (!state.loaded) state = awaitItem()
+                assertThat(state.total).isEqualTo(Pence(6900))
+                assertThat(state.eatingOut!!.paid).isEqualTo(Pence(6000))
+                assertThat(state.eatingOut!!.mine).isEqualTo(Pence(1500))
+
+                viewModel.toggleCategory("c1") // hide Eating out from the view
+                var filtered = awaitItem()
+                while (filtered.total != Pence(900)) filtered = awaitItem()
+                assertThat(filtered.eatingOut).isNull()
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test fun `the month rolls over when the screen resumes after a month change`() =
+        runTest {
+            val lateJune = Instant.parse("2026-06-30T10:00:00Z")
+            val monthClock = FakeClock(lateJune.toEpochMilliseconds())
+            val monthTransactions = FakeTransactionRepository(monthClock)
+            monthTransactions.add(NewTransaction(Pence(500), "June thing", occurredAt = lateJune, categoryId = "c1"))
+            val viewModel =
+                InsightsViewModel(monthTransactions, categories, FakeCategoryLimitStore(), monthClock, UnconfinedTestDispatcher())
+
+            viewModel.uiState.test {
+                var state = awaitItem()
+                while (!state.loaded) state = awaitItem()
+                assertThat(state.monthLabel).isEqualTo("June 2026")
+
+                monthClock.setTo(Instant.parse("2026-07-01T08:00:00Z").toEpochMilliseconds())
+                viewModel.onResume()
+                var july = awaitItem()
+                while (july.monthLabel != "July 2026") july = awaitItem()
+                assertThat(july.monthHasTransactions).isFalse()
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
     @Test fun `toggling a category off removes it from the analysis`() =
         runTest {
             transactions.add(NewTransaction(Pence(900), "Train", occurredAt = now, categoryId = "c2"))

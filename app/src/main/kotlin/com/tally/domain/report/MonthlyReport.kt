@@ -2,7 +2,9 @@ package com.tally.domain.report
 
 import com.tally.core.money.Pence
 import com.tally.domain.insight.CategorySpend
+import com.tally.domain.insight.EatingOutSummary
 import com.tally.domain.insight.categoryBreakdown
+import com.tally.domain.insight.eatingOutSummary
 import com.tally.domain.insight.lengthOfMonth
 import com.tally.domain.model.Category
 import com.tally.domain.model.Transaction
@@ -45,6 +47,7 @@ data class MonthlyReport(
     val avgPerDay: Pence,
     val autoCapturedPercent: Int,
     val vsPrevious: MonthDelta?,
+    val eatingOut: EatingOutSummary? = null,
 ) {
     val isEmpty: Boolean get() = transactionCount == 0
 }
@@ -62,7 +65,9 @@ fun monthLabel(date: LocalDate): String = "${MONTH_NAMES[date.monthNumber - 1]} 
  * Summarises [transactions] (already scoped to [firstOfMonth]'s month) into a
  * [MonthlyReport]. [previousMonthTotal] drives the month-over-month delta (pass
  * null or zero to omit it). Merchants are grouped case-insensitively; the
- * average is over the whole month's length. Pure and deterministic.
+ * average is over the whole month's length. Totals are cash flow, the full
+ * amount paid; [MonthlyReport.eatingOut] is the awareness figure for the user's
+ * own share of eating out (ADR-0010). Pure and deterministic.
  */
 fun monthlyReport(
     transactions: List<Transaction>,
@@ -114,5 +119,6 @@ fun monthlyReport(
         avgPerDay = avgPerDay,
         autoCapturedPercent = autoCapturedPercent,
         vsPrevious = vsPrevious,
+        eatingOut = eatingOutSummary(transactions, categories),
     )
 }

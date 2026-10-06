@@ -42,7 +42,9 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.tally.data.notify.TallyNotificationListenerService
 import com.tally.ui.components.TCard
-import com.tally.ui.components.TCatDot
+import com.tally.ui.components.TCatChip
+import com.tally.ui.components.TKicker
+import com.tally.ui.components.TScreenHeader
 import com.tally.ui.components.TText
 import com.tally.ui.components.TTextField
 import com.tally.ui.theme.TallyTheme
@@ -126,7 +128,7 @@ fun SettingsScreen(
 }
 
 @Composable
-private fun SettingsContent(
+internal fun SettingsContent(
     state: SettingsUiState,
     accessGranted: Boolean,
     onReminderToggle: (Boolean) -> Unit,
@@ -146,12 +148,13 @@ private fun SettingsContent(
                     start = TallyTheme.spacing.lg,
                     end = TallyTheme.spacing.lg,
                     top = TallyTheme.spacing.lg,
-                    bottom = 96.dp,
+                    bottom = TallyTheme.spacing.xl,
                 ),
         verticalArrangement = Arrangement.spacedBy(TallyTheme.spacing.md),
     ) {
-        TText(text = "Settings", style = TallyTheme.typography.headline)
+        TScreenHeader(title = "Settings", kicker = "Preferences")
 
+        TKicker("Reminders", modifier = Modifier.padding(top = TallyTheme.spacing.sm))
         TCard {
             SettingRow(
                 title = "Daily reminder",
@@ -161,6 +164,7 @@ private fun SettingsContent(
             )
         }
 
+        TKicker("Capture", modifier = Modifier.padding(top = TallyTheme.spacing.sm))
         TCard {
             val needsGrant = state.captureEnabled && !accessGranted
             val caption =
@@ -179,13 +183,13 @@ private fun SettingsContent(
         }
 
         if (state.limitRows.isNotEmpty()) {
+            TKicker("Monthly limits", modifier = Modifier.padding(top = TallyTheme.spacing.sm))
             TCard {
-                TText(text = "Monthly limits")
                 TText(
                     text = "A limit you set for a category. Insights then shows what is left, per day.",
                     style = TallyTheme.typography.caption,
                     color = colors.textLo,
-                    modifier = Modifier.padding(top = 2.dp, bottom = TallyTheme.spacing.sm),
+                    modifier = Modifier.padding(bottom = TallyTheme.spacing.sm),
                 )
                 state.limitRows.forEach { row ->
                     LimitEditorRow(row = row, onLimitChange = onLimitChange)
@@ -217,8 +221,8 @@ private fun LimitEditorRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(TallyTheme.spacing.sm),
     ) {
-        TCatDot(color = colors.category(row.colorIndex))
-        TText(text = row.name, modifier = Modifier.weight(1f), maxLines = 1)
+        TCatChip(name = row.name, color = colors.category(row.colorIndex), size = 32.dp)
+        TText(text = row.name, style = TallyTheme.typography.bodyStrong, modifier = Modifier.weight(1f), maxLines = 1)
         TTextField(
             value = text,
             onValueChange = {

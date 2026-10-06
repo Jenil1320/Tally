@@ -37,6 +37,9 @@ data class ReportsUiState(
  * Backs the Reports tab: a selectable month's [MonthlyReport], newest first.
  * Reads the whole ledger and slices in-memory (single-user data is small), so a
  * month change is a plain state update rather than a new query.
+ *
+ * [onResume] re-reads the date. The month being viewed stays put, but "next"
+ * becomes available once a new month has started.
  */
 @HiltViewModel
 class ReportsViewModel
@@ -44,19 +47,19 @@ class ReportsViewModel
     constructor(
         transactionRepository: TransactionRepository,
         categoryRepository: CategoryRepository,
-        clock: Clock,
+        private val clock: Clock,
     ) : ViewModel() {
         private val timeZone = TimeZone.currentSystemDefault()
-        private val currentMonth =
-            clock.now().toLocalDateTime(timeZone).date.let { LocalDate(it.year, it.monthNumber, 1) }
-        private val selectedMonth = MutableStateFlow(currentMonth)
+        private val currentMonth = MutableStateFlow(thisMonth())
+        private val selectedMonth = MutableStateFlow(currentMonth.value)
 
         val uiState: StateFlow<ReportsUiState> =
             combine(
                 transactionRepository.observeAll(),
                 categoryRepository.observeAll(),
                 selectedMonth,
-            ) { all, categories, first ->
+                currentMonth,
+            ) { all, categories, first, latest ->
                 val monthTx = all.filter { inMonth(it.occurredAt, first) }
                 val prevFirst = first.minus(1, DateTimeUnit.MONTH)
                 val prevTotal = Pence(all.filter { inMonth(it.occurredAt, prevFirst) }.sumOf { it.amount.value })
@@ -66,13 +69,20 @@ class ReportsViewModel
                     report = report,
                     previousMonthLabel = monthLabel(prevFirst),
                     observation = observationFor(report),
-                    canGoForward = first < currentMonth,
+                    canGoForward = first < latest,
                 )
             }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ReportsUiState())
 
         fun previousMonth() = selectedMonth.update { it.minus(1, DateTimeUnit.MONTH) }
 
-        fun nextMonth() = selectedMonth.update { if (it < currentMonth) it.plus(1, DateTimeUnit.MONTH) else it }
+        fun nextMonth() = selectedMonth.update { if (it < currentMonth.value) it.plus(1, DateTimeUnit.MONTH) else it }
+
+        /** Re-reads the date, so the next month can be opened once it has started. */
+        fun onResume() {
+            currentMonth.value = thisMonth()
+        }
+
+        private fun thisMonth(): LocalDate = clock.now().toLocalDateTime(timeZone).date.let { LocalDate(it.year, it.monthNumber, 1) }
 
         private fun inMonth(
             instant: Instant,
