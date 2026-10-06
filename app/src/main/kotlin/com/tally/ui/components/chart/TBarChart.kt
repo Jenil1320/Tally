@@ -1,8 +1,11 @@
 package com.tally.ui.components.chart
 
+import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -11,6 +14,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalInspectionMode
+import com.tally.ui.theme.LocalReduceMotion
+import com.tally.ui.theme.TallyMotion
 import com.tally.ui.theme.TallyTheme
 import kotlin.math.floor
 
@@ -57,6 +63,9 @@ fun TBarChart(
 ) {
     val stubColor = TallyTheme.colors.bg3
     val haptics = LocalHapticFeedback.current
+    val still = LocalReduceMotion.current || LocalInspectionMode.current
+    val grow = remember { Animatable(if (still) 1f else 0f) }
+    LaunchedEffect(Unit) { grow.animateTo(1f, TallyMotion.drawIn()) }
 
     val gestures =
         if (onSelectedIndexChange == null) {
@@ -89,7 +98,7 @@ fun TBarChart(
         val radius = CornerRadius(barWidth / 3f, barWidth / 3f)
         val stub = 2f
         values.forEachIndexed { index, value ->
-            val barHeight = if (maxValue > 0f) (value / maxValue) * size.height else 0f
+            val barHeight = if (maxValue > 0f) (value / maxValue) * size.height * grow.value else 0f
             val drawHeight = barHeight.coerceAtLeast(stub)
             val x = index * (barWidth + gap)
             drawRoundRect(

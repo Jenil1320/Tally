@@ -38,6 +38,10 @@ data class TallyTypography(
     val label: TextStyle,
     // meta, timestamps, helper text
     val caption: TextStyle,
+    // the small uppercase mono label above a figure or a section (use uppercase text)
+    val kicker: TextStyle,
+    // the one big figure on a screen (mono, tnum)
+    val numericHero: TextStyle,
     // hero money (mono, tnum)
     val numericLarge: TextStyle,
     // row amounts (mono, tnum)
@@ -79,6 +83,23 @@ private fun buildTypography(
             TextStyle(fontFamily = geist, fontWeight = FontWeight.Medium, fontSize = 13.sp, lineHeight = 16.sp, letterSpacing = 0.005.em),
         caption =
             TextStyle(fontFamily = geist, fontWeight = FontWeight.Normal, fontSize = 12.sp, lineHeight = 16.sp, letterSpacing = 0.01.em),
+        kicker =
+            TextStyle(
+                fontFamily = mono,
+                fontWeight = FontWeight.Medium,
+                fontSize = 10.sp,
+                lineHeight = 14.sp,
+                letterSpacing = 0.14.em,
+            ),
+        numericHero =
+            TextStyle(
+                fontFamily = mono,
+                fontWeight = FontWeight.Medium,
+                fontSize = 52.sp,
+                lineHeight = 56.sp,
+                letterSpacing = (-0.04).em,
+                fontFeatureSettings = TABULAR,
+            ),
         numericLarge =
             TextStyle(
                 fontFamily = mono,

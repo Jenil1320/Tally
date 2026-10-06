@@ -16,6 +16,8 @@ import androidx.compose.runtime.remember
  *  - resolves the [TallyColors] for the chosen [jewel];
  *  - builds the Geist/Geist Mono [TallyTypography] from bundled assets;
  *  - publishes Tally's tokens via composition locals (read through [TallyTheme]);
+ *  - publishes [LocalReduceMotion], which follows the system "remove animations"
+ *    setting (screenshot tests pass `reduceMotion = true`);
  *  - bridges to a Material 3 [darkColorScheme] so any stock M3 component that
  *    slips in still lands on Tally's palette rather than purple.
  *
@@ -24,6 +26,7 @@ import androidx.compose.runtime.remember
 @Composable
 fun TallyTheme(
     jewel: Jewel = Jewel.Default,
+    reduceMotion: Boolean = rememberSystemReduceMotion(),
     content: @Composable () -> Unit,
 ) {
     val colors = remember(jewel) { tallyColors(jewel) }
@@ -38,6 +41,7 @@ fun TallyTheme(
         LocalTallyTypography provides typography,
         LocalTallyShapes provides shapes,
         LocalTallySpacing provides spacing,
+        LocalReduceMotion provides reduceMotion,
         LocalContentColor provides colors.textHi,
     ) {
         MaterialTheme(

@@ -28,7 +28,7 @@ class ChartsScreenshotTest {
     @Test
     fun categoryDonut() {
         paparazzi.snapshot {
-            TallyTheme {
+            TallyTheme(reduceMotion = true) {
                 val colors = TallyTheme.colors
                 Box(
                     modifier = Modifier.background(colors.bg0).padding(24.dp),
@@ -57,7 +57,7 @@ class ChartsScreenshotTest {
     @Test
     fun weekdayBars() {
         paparazzi.snapshot {
-            TallyTheme {
+            TallyTheme(reduceMotion = true) {
                 val colors = TallyTheme.colors
                 Box(
                     modifier = Modifier.background(colors.bg0).padding(24.dp),

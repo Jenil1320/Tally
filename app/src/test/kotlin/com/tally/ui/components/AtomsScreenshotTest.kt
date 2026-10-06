@@ -44,7 +44,7 @@ class AtomsScreenshotTest {
 
 @Composable
 private fun AtomsGallery() {
-    TallyTheme {
+    TallyTheme(reduceMotion = true) {
         val colors = TallyTheme.colors
         Column(
             modifier =

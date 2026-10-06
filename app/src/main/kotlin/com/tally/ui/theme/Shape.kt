@@ -13,7 +13,7 @@ import androidx.compose.ui.unit.dp
 @Immutable
 data class TallyShapes(
     val small: RoundedCornerShape = RoundedCornerShape(8.dp),
-    val card: RoundedCornerShape = RoundedCornerShape(16.dp),
+    val card: RoundedCornerShape = RoundedCornerShape(20.dp),
     val large: RoundedCornerShape = RoundedCornerShape(20.dp),
     val sheet: RoundedCornerShape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
     val pill: RoundedCornerShape = RoundedCornerShape(percent = 50),
