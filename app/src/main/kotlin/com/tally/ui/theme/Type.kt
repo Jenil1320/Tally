@@ -44,6 +44,8 @@ data class TallyTypography(
     val numericHero: TextStyle,
     // hero money (mono, tnum)
     val numericLarge: TextStyle,
+    // stat-tile money (mono, tnum)
+    val numericTitle: TextStyle,
     // row amounts (mono, tnum)
     val numericMedium: TextStyle,
     // dense figures (mono, tnum)
@@ -107,6 +109,15 @@ private fun buildTypography(
                 fontSize = 40.sp,
                 lineHeight = 44.sp,
                 letterSpacing = (-0.01).em,
+                fontFeatureSettings = TABULAR,
+            ),
+        numericTitle =
+            TextStyle(
+                fontFamily = mono,
+                fontWeight = FontWeight.Medium,
+                fontSize = 24.sp,
+                lineHeight = 28.sp,
+                letterSpacing = (-0.02).em,
                 fontFeatureSettings = TABULAR,
             ),
         numericMedium =

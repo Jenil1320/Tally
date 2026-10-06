@@ -10,6 +10,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -22,7 +23,7 @@ import com.tally.ui.theme.TallyMotion
 import com.tally.ui.theme.TallyTheme
 
 /** Size variants for [TNum], mapped to the mono numeric type scale. */
-enum class TNumSize { Hero, Large, Medium, Small }
+enum class TNumSize { Hero, Large, Title, Medium, Small }
 
 /**
  * The money atom — the *only* sanctioned way to put a GBP amount on screen
@@ -63,26 +64,21 @@ fun TNum(
         when (size) {
             TNumSize.Hero -> typography.numericHero
             TNumSize.Large -> typography.numericLarge
+            TNumSize.Title -> typography.numericTitle
             TNumSize.Medium -> typography.numericMedium
             TNumSize.Small -> typography.numericSmall
         }
     val base = MoneyFormat.format(shown, symbol = showSymbol, grouped = grouped)
     val text = if (signed && shown.isPositive) "+$base" else base
-    if (size == TNumSize.Hero) {
-        Text(
-            text = heroText(text, softColor = TallyTheme.colors.textMid),
-            modifier = modifier,
-            style = style,
-            color = color,
-        )
-    } else {
-        Text(
-            text = text,
-            modifier = modifier,
-            style = style,
-            color = color,
-        )
-    }
+    Text(
+        text = if (size == TNumSize.Hero) heroText(text, softColor = TallyTheme.colors.textMid) else AnnotatedString(text),
+        modifier = modifier,
+        style = style,
+        color = color,
+        // An amount never breaks across lines.
+        maxLines = 1,
+        softWrap = false,
+    )
 }
 
 /** Sets the symbol and the pence of "£1,234.56" smaller and softer than the whole pounds. */

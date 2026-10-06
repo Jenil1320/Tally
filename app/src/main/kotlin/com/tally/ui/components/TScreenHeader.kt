@@ -58,7 +58,7 @@ fun TSectionHeader(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
-        TText(text = title, style = TallyTheme.typography.bodyStrong, modifier = Modifier.padding(horizontal = 4.dp))
+        TText(text = title, style = TallyTheme.typography.bodyStrong)
         if (action != null && onAction != null) {
             TText(
                 text = action,
@@ -68,7 +68,7 @@ fun TSectionHeader(
                     Modifier
                         .heightIn(min = TallyTheme.spacing.minTouchTarget)
                         .clickable(role = Role.Button, onClick = onAction)
-                        .padding(horizontal = 4.dp)
+                        .padding(start = 12.dp)
                         .padding(vertical = 12.dp),
             )
         }
