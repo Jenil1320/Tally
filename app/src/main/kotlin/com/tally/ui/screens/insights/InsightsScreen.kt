@@ -32,11 +32,11 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.tally.core.money.Pence
+import com.tally.domain.insight.EatingOutMonth
 import com.tally.domain.insight.LimitState
 import com.tally.domain.insight.LimitStatus
 import com.tally.domain.insight.MerchantTotal
-import com.tally.ui.components.CategoryBreakdownCard
-import com.tally.ui.components.EatingOutCard
+import com.tally.domain.insight.UnusualSpend
 import com.tally.ui.components.TCard
 import com.tally.ui.components.TCatChip
 import com.tally.ui.components.TCatDot
@@ -49,7 +49,17 @@ import com.tally.ui.components.categoryColor
 import com.tally.ui.components.chart.TBarChart
 import com.tally.ui.components.chart.TLimitBar
 import com.tally.ui.theme.TallyTheme
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
+import kotlin.math.roundToInt
 
+/**
+ * Insights: patterns over time. Home shows the month right now and Reports
+ * summarises one finished month, so this tab answers what neither can: how this
+ * month sits against the ones before, what a normal week looks like, what stood
+ * out, and where you stand against your limits.
+ */
 @Composable
 fun InsightsScreen(
     modifier: Modifier = Modifier,
@@ -70,11 +80,19 @@ internal fun InsightsContent(
     modifier: Modifier = Modifier,
 ) {
     val colors = TallyTheme.colors
-    if (state.loaded && !state.monthHasTransactions) {
+    if (state.loaded && !state.hasData) {
         Box(modifier = modifier.fillMaxSize().background(colors.bg0), contentAlignment = Alignment.Center) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(
+                modifier = Modifier.padding(horizontal = 32.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
                 TKicker("Nothing to read yet")
-                TText("No spending this month yet.", color = colors.textMid)
+                TText(
+                    text = "Patterns appear once you have logged a few transactions.",
+                    color = colors.textMid,
+                    textAlign = TextAlign.Center,
+                )
             }
         }
         return
@@ -92,23 +110,26 @@ internal fun InsightsContent(
     ) {
         item {
             TScreenHeader(
-                title = "Where it went",
-                kicker = "${state.monthLabel} · ${state.transactionCount} transactions",
+                title = "Insights",
+                kicker = "Patterns · ${state.monthLabel}",
             )
         }
-        item { FilterChips(chips = state.chips, onToggle = onToggleCategory) }
-        item { CategoryBreakdownCard(breakdown = state.breakdown, total = state.total) }
-        if (state.eatingOut?.hasShared == true) item { EatingOutCard(summary = state.eatingOut) }
-        item { ForecastCard(forecast = state.forecast) }
         if (state.limits.isNotEmpty()) {
             item { SectionKicker("Monthly limits") }
             items(items = state.limits, key = { "limit-${it.categoryId}" }) { limit -> LimitRow(limit) }
         }
-        if (state.topMerchants.isNotEmpty()) {
-            item { MerchantCard(merchants = state.topMerchants) }
+        item {
+            Column(verticalArrangement = Arrangement.spacedBy(TallyTheme.spacing.sm)) {
+                SectionKicker("Looking at")
+                FilterChips(chips = state.chips, onToggle = onToggleCategory)
+            }
         }
+        item { TrendCard(state) }
+        if (state.rhythm != null) item { TypicalWeekCard(state) }
         item { DailyTrendCard(state) }
-        item { WeekdayRhythmCard(state) }
+        if (state.unusual.isNotEmpty()) item { UnusualCard(unusual = state.unusual) }
+        if (state.topMerchants.isNotEmpty()) item { MerchantCard(merchants = state.topMerchants) }
+        if (state.eatingOutMonths.any { it.hasShared }) item { EatingOutMonthsCard(months = state.eatingOutMonths) }
         item {
             TText(
                 text = "Press and hold a chart to read a single bar.",
@@ -126,7 +147,88 @@ private fun SectionKicker(text: String) {
     TKicker(text, modifier = Modifier.padding(top = TallyTheme.spacing.sm))
 }
 
-/** Spend per day of the month; press and hold to read one day. */
+/** The last six months as bars, this month highlighted, with the month-end pace beside the usual month. */
+@Composable
+private fun TrendCard(state: InsightsUiState) {
+    val colors = TallyTheme.colors
+    var scrubbed by remember { mutableStateOf<Int?>(null) }
+    val lastIndex = state.trend.lastIndex
+    ChartCard(
+        title = "Last six months",
+        selection =
+            scrubbed?.let { index ->
+                state.trend.getOrNull(index)?.let { ChartSelection(it.fullLabel, it.total) }
+            },
+    ) {
+        TBarChart(
+            values = state.trend.map { it.total.value.toFloat() },
+            highlightIndex = lastIndex,
+            selectedIndex = scrubbed,
+            onSelectedIndexChange = { scrubbed = it },
+            modifier = Modifier.fillMaxWidth().height(110.dp),
+        )
+        Row(modifier = Modifier.fillMaxWidth().padding(top = TallyTheme.spacing.xs)) {
+            state.trend.forEachIndexed { index, month ->
+                TText(
+                    text = month.shortLabel,
+                    style = TallyTheme.typography.caption,
+                    color = if (index == lastIndex) colors.accent else colors.textLo,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(top = TallyTheme.spacing.lg),
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            StatBlock(kicker = "On pace for", amount = state.forecast, accent = true)
+            state.usualMonth?.let { StatBlock(kicker = "Usual month", amount = it, alignEnd = true) }
+        }
+    }
+}
+
+/** Average spend on each weekday over the whole window, so weekends and weekdays can be compared. */
+@Composable
+private fun TypicalWeekCard(state: InsightsUiState) {
+    val rhythm = state.rhythm ?: return
+    var scrubbed by remember { mutableStateOf<Int?>(null) }
+    ChartCard(
+        title = "A typical week",
+        selection =
+            scrubbed?.let { index ->
+                state.weekdayAverages.getOrNull(index)?.let { ChartSelection("${WEEKDAY_NAMES[index]}s, on average", it) }
+            },
+    ) {
+        TBarChart(
+            values = state.weekdayAverages.map { it.value.toFloat() },
+            highlightIndex = state.peakWeekdayIndex,
+            selectedIndex = scrubbed,
+            onSelectedIndexChange = { scrubbed = it },
+            modifier = Modifier.fillMaxWidth().height(96.dp),
+        )
+        Row(modifier = Modifier.fillMaxWidth().padding(top = TallyTheme.spacing.xs)) {
+            listOf("M", "T", "W", "T", "F", "S", "S").forEach { label ->
+                TText(
+                    text = label,
+                    style = TallyTheme.typography.caption,
+                    color = TallyTheme.colors.textLo,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(top = TallyTheme.spacing.lg),
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            StatBlock(kicker = "Weekday, per day", amount = rhythm.weekdayAverage, accent = !rhythm.weekendHeavier)
+            StatBlock(kicker = "Weekend, per day", amount = rhythm.weekendAverage, accent = rhythm.weekendHeavier, alignEnd = true)
+        }
+    }
+}
+
+/** Spend per day of this month; press and hold to read one day. */
 @Composable
 private fun DailyTrendCard(state: InsightsUiState) {
     var scrubbed by remember { mutableStateOf<Int?>(null) }
@@ -149,38 +251,6 @@ private fun DailyTrendCard(state: InsightsUiState) {
     }
 }
 
-/** Spend per weekday; press and hold to read one day. */
-@Composable
-private fun WeekdayRhythmCard(state: InsightsUiState) {
-    var scrubbed by remember { mutableStateOf<Int?>(null) }
-    ChartCard(
-        title = "By weekday",
-        selection =
-            scrubbed?.let { index ->
-                state.weekdayTotals.getOrNull(index)?.let { ChartSelection(WEEKDAY_NAMES[index], it) }
-            },
-    ) {
-        TBarChart(
-            values = state.weekdayTotals.map { it.value.toFloat() },
-            highlightIndex = state.peakWeekdayIndex,
-            selectedIndex = scrubbed,
-            onSelectedIndexChange = { scrubbed = it },
-            modifier = Modifier.fillMaxWidth().height(96.dp),
-        )
-        Row(modifier = Modifier.fillMaxWidth().padding(top = TallyTheme.spacing.xs)) {
-            listOf("M", "T", "W", "T", "F", "S", "S").forEach { label ->
-                TText(
-                    text = label,
-                    style = TallyTheme.typography.caption,
-                    color = TallyTheme.colors.textLo,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.weight(1f),
-                )
-            }
-        }
-    }
-}
-
 private val WEEKDAY_NAMES =
     listOf("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
 
@@ -189,6 +259,25 @@ private data class ChartSelection(
     val label: String,
     val amount: Pence,
 )
+
+/** A figure with a small label above it, for the two numbers under a chart. */
+@Composable
+private fun StatBlock(
+    kicker: String,
+    amount: Pence,
+    accent: Boolean = false,
+    alignEnd: Boolean = false,
+) {
+    Column(horizontalAlignment = if (alignEnd) Alignment.End else Alignment.Start) {
+        TKicker(kicker)
+        TNum(
+            amount = amount,
+            size = TNumSize.Title,
+            color = if (accent) TallyTheme.colors.accent else TallyTheme.colors.textHi,
+            modifier = Modifier.padding(top = 4.dp),
+        )
+    }
+}
 
 @Composable
 private fun FilterChips(
@@ -228,27 +317,6 @@ private fun FilterChips(
     }
 }
 
-@Composable
-private fun ForecastCard(forecast: Pence) {
-    val colors = TallyTheme.colors
-    TCard(modifier = Modifier.fillMaxWidth()) {
-        TKicker("On pace for")
-        Row(
-            modifier = Modifier.padding(top = 6.dp),
-            verticalAlignment = Alignment.Bottom,
-            horizontalArrangement = Arrangement.spacedBy(TallyTheme.spacing.sm),
-        ) {
-            TNum(amount = forecast, size = TNumSize.Title)
-            TText(
-                text = "by month end",
-                style = TallyTheme.typography.caption,
-                color = colors.textLo,
-                modifier = Modifier.padding(bottom = 4.dp),
-            )
-        }
-    }
-}
-
 /**
  * One capped category: spend against its limit, with a pace tick, and what is
  * left restated per day — the form that is usable at the till. Voice stays
@@ -270,7 +338,7 @@ private fun LimitRow(limit: LimitState) {
             fillFraction = limit.fillFraction,
             paceFraction = limit.paceFraction,
             fillColor = categoryColor(limit.colorIndex),
-            // Padding first: with the height set before it, the 8 dp of padding left the bar no room to draw.
+            // Padding first: with the height set before it, the padding left the bar no room to draw.
             modifier = Modifier.fillMaxWidth().padding(top = TallyTheme.spacing.md).height(8.dp),
         )
         Row(
@@ -301,7 +369,66 @@ private fun LimitRow(limit: LimitState) {
 }
 
 /**
- * Spend grouped by merchant. The category donut hides "small and often" — many
+ * Purchases well above what is usual for their category, the biggest ratio
+ * first. Quiet by design: it shows the amount, what is usual, and
+ * how many times over it was, and does not judge.
+ */
+@Composable
+private fun UnusualCard(unusual: List<UnusualSpend>) {
+    val colors = TallyTheme.colors
+    val timeZone = TimeZone.currentSystemDefault()
+    TCard(modifier = Modifier.fillMaxWidth()) {
+        TKicker("Bigger than usual, this month")
+        unusual.forEachIndexed { index, spend ->
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(top = if (index == 0) 12.dp else 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(TallyTheme.spacing.md),
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    TText(
+                        text = spend.merchant,
+                        style = TallyTheme.typography.bodyStrong,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    val date = spend.occurredAt.toLocalDateTime(timeZone).date
+                    TText(
+                        text = "${timesLabel(spend.times)} your usual in ${spend.categoryName} · ${shortDate(date)}",
+                        style = TallyTheme.typography.caption,
+                        color = colors.textLo,
+                        maxLines = 2,
+                    )
+                }
+                Column(horizontalAlignment = Alignment.End) {
+                    TNum(amount = spend.amount, size = TNumSize.Small, color = colors.warning)
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(top = 2.dp),
+                    ) {
+                        TText(text = "usual", style = TallyTheme.typography.caption, color = colors.textLo)
+                        TNum(amount = spend.usual, size = TNumSize.Small, color = colors.textLo)
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** "3.2×" for a ratio, with the decimal dropped when it is a whole number. */
+private fun timesLabel(times: Float): String {
+    val tenths = (times * 10).roundToInt()
+    return if (tenths % 10 == 0) "${tenths / 10}×" else "${tenths / 10}.${tenths % 10}×"
+}
+
+private fun shortDate(date: LocalDate): String {
+    val month = date.month.name.lowercase().replaceFirstChar { it.uppercase() }.take(3)
+    return "${date.dayOfMonth} $month"
+}
+
+/**
+ * Spend grouped by merchant. The category chart hides "small and often" — many
  * modest purchases at one place — which this card makes visible by pairing each
  * total with its visit count.
  */
@@ -309,7 +436,7 @@ private fun LimitRow(limit: LimitState) {
 private fun MerchantCard(merchants: List<MerchantTotal>) {
     val colors = TallyTheme.colors
     TCard(modifier = Modifier.fillMaxWidth()) {
-        TKicker("Where it goes, by merchant")
+        TKicker("Small and often, by merchant")
         merchants.forEachIndexed { index, merchant ->
             Row(
                 modifier = Modifier.fillMaxWidth().padding(top = if (index == 0) 12.dp else 14.dp),
@@ -335,6 +462,38 @@ private fun MerchantCard(merchants: List<MerchantTotal>) {
                     )
                 }
                 TNum(amount = merchant.total, size = TNumSize.Small)
+            }
+        }
+    }
+}
+
+/**
+ * Eating out month by month: what was paid, and the user's own share of it. It
+ * is the awareness view (ADR-0010); the totals everywhere else stay at the full
+ * amount paid.
+ */
+@Composable
+private fun EatingOutMonthsCard(months: List<EatingOutMonth>) {
+    val colors = TallyTheme.colors
+    TCard(modifier = Modifier.fillMaxWidth()) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            TKicker("Eating out, by month")
+            Row(horizontalArrangement = Arrangement.spacedBy(TallyTheme.spacing.lg)) {
+                TKicker("Your share", color = colors.accent)
+                TKicker("Paid")
+            }
+        }
+        months.forEachIndexed { index, month ->
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(top = if (index == 0) 12.dp else 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                TText(text = month.label, style = TallyTheme.typography.bodyStrong)
+                Row(horizontalArrangement = Arrangement.spacedBy(TallyTheme.spacing.lg)) {
+                    TNum(amount = month.mine, size = TNumSize.Small, color = if (month.hasShared) colors.accent else colors.textLo)
+                    TNum(amount = month.paid, size = TNumSize.Small, color = colors.textLo)
+                }
             }
         }
     }
