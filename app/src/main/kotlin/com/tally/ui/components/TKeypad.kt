@@ -1,5 +1,7 @@
 package com.tally.ui.components
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -14,8 +16,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.tally.ui.theme.TallyTheme
 
 /**
@@ -24,7 +28,8 @@ import com.tally.ui.theme.TallyTheme
  * a convenience for round amounts; the arrow deletes the last digit.
  *
  * Callbacks are intentionally low-level (the ViewModel owns the running pence
- * value) so the keypad stays a dumb, testable component.
+ * value) so the keypad stays a dumb, testable component. Keys are quiet raised
+ * tiles with a hairline edge, set in mono like every other figure.
  */
 @Composable
 fun TKeypad(
@@ -65,18 +70,24 @@ private fun RowScope.Key(
     contentDescription: String? = label,
     content: @Composable () -> Unit = {
         if (label != null) {
-            TText(text = label, style = TallyTheme.typography.title)
+            TText(text = label, style = TallyTheme.typography.numericLarge.copy(fontSize = KEY_FONT_SIZE))
         }
     },
 ) {
+    val shape = TallyTheme.shapes.large
     Box(
         modifier =
             Modifier
                 .weight(1f)
-                .height(56.dp)
+                .height(52.dp)
+                .clip(shape)
+                .background(TallyTheme.colors.bg1)
+                .border(1.dp, TallyTheme.colors.lineSoft, shape)
                 .clickable(role = Role.Button, onClickLabel = contentDescription, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         content()
     }
 }
+
+private val KEY_FONT_SIZE = 22.sp
