@@ -8,7 +8,8 @@ import com.tally.data.db.entity.CategoryEntity
 import com.tally.data.db.entity.TransactionEntity
 
 /**
- * The Tally Room database, schema version 1.
+ * The Tally Room database, schema version 2 (v2 added `transactions.myShare`;
+ * see [MIGRATION_1_2]).
  *
  * `exportSchema = true` writes the schema JSON to `/schemas` (configured in
  * `app/build.gradle.kts`); every future version ships a migration plus a test
@@ -17,7 +18,7 @@ import com.tally.data.db.entity.TransactionEntity
  */
 @Database(
     entities = [TransactionEntity::class, CategoryEntity::class],
-    version = 1,
+    version = 2,
     exportSchema = true,
 )
 abstract class TallyDatabase : RoomDatabase() {

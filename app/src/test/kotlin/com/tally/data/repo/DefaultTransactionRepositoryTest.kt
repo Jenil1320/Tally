@@ -86,6 +86,26 @@ class DefaultTransactionRepositoryTest {
             assertThat(repository.topCategoryIds(2)).containsExactly("food", "shop").inOrder()
         }
 
+    @Test fun `my share is stored and read back, and an old row reads as unshared`() =
+        runTest {
+            val shared = repository.add(draft(amount = 6000).copy(myShare = Pence(1500)))
+            val plain = repository.add(draft(amount = 2000))
+            assertThat(dao.findById(shared)!!.myShare).isEqualTo(1500L)
+            assertThat(dao.findById(plain)!!.myShare).isNull()
+            assertThat(repository.findById(shared)!!.myShare).isEqualTo(Pence(1500))
+            assertThat(repository.findById(plain)!!.ownSpend).isEqualTo(Pence(2000))
+        }
+
+    @Test fun `update can set and clear my share without touching the amount paid`() =
+        runTest {
+            val id = repository.add(draft(amount = 6000))
+            repository.update(id, draft(amount = 6000).copy(myShare = Pence(2000)))
+            assertThat(dao.findById(id)!!.amount).isEqualTo(6000L)
+            assertThat(dao.findById(id)!!.myShare).isEqualTo(2000L)
+            repository.update(id, draft(amount = 6000))
+            assertThat(dao.findById(id)!!.myShare).isNull()
+        }
+
     @Test fun `update changes editable fields but preserves createdAt`() =
         runTest {
             val id = repository.add(draft(amount = 485, merchant = "Coffee"))

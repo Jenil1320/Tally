@@ -2,6 +2,7 @@ package com.tally.di
 
 import android.content.Context
 import androidx.room.Room
+import com.tally.data.db.ALL_MIGRATIONS
 import com.tally.data.db.TallyDatabase
 import com.tally.data.db.dao.CategoryDao
 import com.tally.data.db.dao.TransactionDao
@@ -20,7 +21,10 @@ object DatabaseModule {
     @Singleton
     fun database(
         @ApplicationContext context: Context,
-    ): TallyDatabase = Room.databaseBuilder(context, TallyDatabase::class.java, TallyDatabase.NAME).build()
+    ): TallyDatabase =
+        Room.databaseBuilder(context, TallyDatabase::class.java, TallyDatabase.NAME)
+            .addMigrations(*ALL_MIGRATIONS)
+            .build()
 
     @Provides
     fun transactionDao(database: TallyDatabase): TransactionDao = database.transactionDao()

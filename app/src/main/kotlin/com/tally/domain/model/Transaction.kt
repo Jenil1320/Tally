@@ -13,6 +13,10 @@ import kotlinx.datetime.Instant
  *
  * @property occurredAt when the spend happened (user-editable).
  * @property createdAt when the row was written (immutable; ULIDs also encode it).
+ * @property myShare the part of [amount] that was the user's own spend, when
+ *   someone else covered the rest (a shared meal). Null means the whole [amount]
+ *   is theirs. Cash flow always uses [amount]; [myShare] is for awareness only
+ *   (see ADR-0010).
  */
 data class Transaction(
     val id: String,
@@ -23,7 +27,14 @@ data class Transaction(
     val occurredAt: Instant,
     val createdAt: Instant,
     val source: TransactionSource,
-)
+    val myShare: Pence? = null,
+) {
+    /** What this transaction cost the user personally: [myShare], or the whole [amount]. */
+    val ownSpend: Pence get() = myShare ?: amount
+
+    /** True when the user recorded a share that is smaller than what was paid. */
+    val isShared: Boolean get() = myShare != null && myShare < amount
+}
 
 /** How a transaction entered Tally. */
 enum class TransactionSource {

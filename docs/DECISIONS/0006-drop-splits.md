@@ -1,6 +1,6 @@
 # 0006 — Drop the splits feature; log your own share
 
-- **Status:** Accepted
+- **Status:** Accepted. Partly replaced by [0010](0010-eating-out-share.md), which adds an optional share for eating out.
 - **Date:** 2026-06-15
 - **Deciders:** Jenil (owner/PM), Claude (engineering)
 - **Related:** M2, [0002](0002-pence-arithmetic.md), [0005](0005-transaction-amount-sign.md), CONTRIBUTING §16

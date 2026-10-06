@@ -64,6 +64,7 @@ class DefaultTransactionRepository
                     categoryId = draft.categoryId,
                     occurredAt = draft.occurredAt.toEpochMilliseconds(),
                     source = draft.source.name,
+                    myShare = draft.myShare?.value,
                 ),
             )
         }

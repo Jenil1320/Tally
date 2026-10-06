@@ -45,6 +45,7 @@ class FakeTransactionRepository(
                         categoryId = draft.categoryId,
                         occurredAt = draft.occurredAt,
                         source = draft.source,
+                        myShare = draft.myShare,
                     )
                 } else {
                     existing
@@ -65,6 +66,7 @@ class FakeTransactionRepository(
                 occurredAt = draft.occurredAt,
                 createdAt = clock.now(),
                 source = draft.source,
+                myShare = draft.myShare,
             )
         return id
     }

@@ -25,6 +25,7 @@ internal fun TransactionEntity.toDomain(): Transaction =
         occurredAt = Instant.fromEpochMilliseconds(occurredAt),
         createdAt = Instant.fromEpochMilliseconds(createdAt),
         source = TransactionSource.valueOf(source),
+        myShare = myShare?.let(::Pence),
     )
 
 internal fun NewTransaction.toEntity(
@@ -42,6 +43,7 @@ internal fun NewTransaction.toEntity(
         source = source.name,
         smsRaw = null,
         deletedAt = null,
+        myShare = myShare?.value,
     )
 
 internal fun CategoryEntity.toDomain(): Category =

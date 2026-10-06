@@ -17,6 +17,8 @@ import androidx.room.PrimaryKey
  * - `smsRaw` holds the original bank SMS; it is encrypted at rest from M4 and is
  *   excluded from any future cloud-sync payload (PRIVACY). Null in v1.
  * - Deleting a category nulls the FK rather than cascading away spend history.
+ * - `myShare` (schema v2) is the part of `amount` that is the user's own spend,
+ *   in pence. Null means "all of it" — every row from before v2 stays null.
  */
 @Entity(
     tableName = "transactions",
@@ -45,4 +47,5 @@ data class TransactionEntity(
     val source: String,
     val smsRaw: String?,
     val deletedAt: Long?,
+    val myShare: Long? = null,
 )
