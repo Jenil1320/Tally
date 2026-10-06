@@ -76,6 +76,15 @@ class DefaultTransactionRepository
             dao.updateCategory(id, categoryId)
         }
 
+        override suspend fun updateShare(
+            id: String,
+            myShare: Pence?,
+        ) = withContext(ioDispatcher) {
+            val existing = dao.findById(id) ?: return@withContext
+            if (myShare != null && (myShare.value < 0 || myShare.value > existing.amount)) return@withContext
+            dao.updateShare(id, myShare?.value)
+        }
+
         override suspend fun topCategoryIds(limit: Int): List<String> =
             withContext(ioDispatcher) {
                 dao.topCategoryIds(limit)

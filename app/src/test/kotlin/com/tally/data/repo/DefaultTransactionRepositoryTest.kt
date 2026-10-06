@@ -106,6 +106,23 @@ class DefaultTransactionRepositoryTest {
             assertThat(dao.findById(id)!!.myShare).isNull()
         }
 
+    @Test fun `updateShare sets only the share and refuses a share above the amount paid`() =
+        runTest {
+            val id = repository.add(draft(amount = 3840, merchant = "Dishoom"))
+            repository.updateShare(id, Pence(1920))
+            assertThat(dao.findById(id)!!.myShare).isEqualTo(1920L)
+            assertThat(dao.findById(id)!!.amount).isEqualTo(3840L)
+            assertThat(dao.findById(id)!!.merchant).isEqualTo("Dishoom")
+
+            repository.updateShare(id, Pence(3841)) // above the amount paid: ignored
+            assertThat(dao.findById(id)!!.myShare).isEqualTo(1920L)
+
+            repository.updateShare(id, null) // clears it
+            assertThat(dao.findById(id)!!.myShare).isNull()
+
+            repository.updateShare("missing", Pence(100)) // unknown id: no crash
+        }
+
     @Test fun `update changes editable fields but preserves createdAt`() =
         runTest {
             val id = repository.add(draft(amount = 485, merchant = "Coffee"))

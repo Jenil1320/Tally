@@ -23,8 +23,11 @@ own part of the bill. Null means "the whole amount is mine".
 
 - Only the **Eating out** category asks for a share. The Add sheet shows the
   question when that category is chosen: All mine, Half, A third, or Custom.
-- Capture notifications for an Eating out payment invite the owner to add a
-  share. The payment is still logged first, then edited.
+- The payment is still logged first. The capture notification for an Eating out
+  payment then offers three actions: "Half", "My share" (the owner types an
+  amount in the notification itself) and "Change" (opens the editor). The
+  notification updates to show the saved share. An amount that cannot be read, or
+  that is above the amount paid, saves nothing and shows a short hint.
 - Totals for the month, the category chart and the monthly report stay on
   `amount`. A separate awareness line reads "Your share of eating out".
 - `myShare` must be between 0 and `amount`. The Add sheet caps it. `NewTransaction`

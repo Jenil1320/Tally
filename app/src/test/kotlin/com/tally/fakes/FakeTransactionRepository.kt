@@ -78,6 +78,20 @@ class FakeTransactionRepository(
         items.value = items.value.map { if (it.id == id) it.copy(categoryId = categoryId) else it }
     }
 
+    override suspend fun updateShare(
+        id: String,
+        myShare: Pence?,
+    ) {
+        items.value =
+            items.value.map { existing ->
+                if (existing.id == id && (myShare == null || myShare.value in 0..existing.amount.value)) {
+                    existing.copy(myShare = myShare)
+                } else {
+                    existing
+                }
+            }
+    }
+
     override suspend fun topCategoryIds(limit: Int): List<String> =
         items.value
             .mapNotNull { it.categoryId }

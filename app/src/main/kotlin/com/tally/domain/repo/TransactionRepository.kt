@@ -41,6 +41,16 @@ interface TransactionRepository {
         categoryId: String?,
     )
 
+    /**
+     * Sets only the user's share of a transaction (the capture notification's
+     * share actions). A share outside zero to the amount paid, or an unknown
+     * [id], is ignored. Null clears the share.
+     */
+    suspend fun updateShare(
+        id: String,
+        myShare: Pence?,
+    )
+
     /** The most-used category ids across live rows, most-frequent first, up to [limit]. */
     suspend fun topCategoryIds(limit: Int): List<String>
 

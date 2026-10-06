@@ -38,6 +38,13 @@ class FakeTransactionDao : TransactionDao {
         rows.value = rows.value.map { if (it.id == id) it.copy(categoryId = categoryId) else it }
     }
 
+    override suspend fun updateShare(
+        id: String,
+        myShare: Long?,
+    ) {
+        rows.value = rows.value.map { if (it.id == id) it.copy(myShare = myShare) else it }
+    }
+
     override suspend fun countMatching(
         source: String,
         amount: Long,

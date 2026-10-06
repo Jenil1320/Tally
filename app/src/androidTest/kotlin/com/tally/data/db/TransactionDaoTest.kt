@@ -69,4 +69,14 @@ class TransactionDaoTest {
             assertThat(dao.countLive()).isEqualTo(0)
             assertThat(dao.findById("a")?.deletedAt).isEqualTo(999)
         }
+
+    @Test
+    fun myShareRoundTripsAndDefaultsToEmpty() =
+        runTest {
+            dao.insert(row("shared", occurredAt = 100).copy(amount = 3840, myShare = 1920))
+            dao.insert(row("plain", occurredAt = 200))
+            assertThat(dao.findById("shared")?.myShare).isEqualTo(1920L)
+            assertThat(dao.findById("shared")?.amount).isEqualTo(3840L)
+            assertThat(dao.findById("plain")?.myShare).isNull()
+        }
 }

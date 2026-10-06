@@ -43,6 +43,13 @@ interface TransactionDao {
         categoryId: String?,
     )
 
+    /** Sets only the user's share of a row — used by the capture notification's share actions. */
+    @Query("UPDATE transactions SET myShare = :myShare WHERE id = :id")
+    suspend fun updateShare(
+        id: String,
+        myShare: Long?,
+    )
+
     /** Count of live rows matching a source + amount + merchant + time — used to de-dup captures. */
     @Query(
         "SELECT COUNT(*) FROM transactions " +

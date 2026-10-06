@@ -54,5 +54,10 @@
             android:name=".data.notify.CategorySelectionReceiver"
             android:exported="false" />
 
+        <!-- Handles "Half" and the typed "My share" reply on an Eating out capture notification (no UI). -->
+        <receiver
+            android:name=".data.notify.ShareSelectionReceiver"
+            android:exported="false" />
+
     </application>
 </manifest>
